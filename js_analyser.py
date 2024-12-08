@@ -3,7 +3,6 @@ import os
 import json
 import esprima
 
-
 def load_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
@@ -14,9 +13,12 @@ def analyze(slice_code, patterns):
     except Exception as e:
         print(f"Error parsing JavaScript slice: {e}")
         sys.exit(1)
+
     results = []
     for pattern in patterns:
-        results.extend(vulnerabilities(parsed_ast, pattern))
+        result = vulnerabilities(parsed_ast, pattern)
+        if result:
+            results.extend(result)
     return results
 
 def vulnerabilities(ast, pattern):
@@ -24,9 +26,60 @@ def vulnerabilities(ast, pattern):
     sinks = pattern["sinks"]
     sanitizers = pattern["sanitizers"]
     implicit = pattern.get("implicit", "no")
+
     tainted_vars = {}
-    vulnerabilities = []
-    #falta o resto...
+    vulnerabilities = [] 
+
+    print("Parsed AST Structure:")
+    print(json.dumps(ast, indent=4))
+
+    def traverse(node):
+        if not isinstance(node, dict) or "type" not in node:
+            return
+
+        if node["type"] == "AssignmentExpression":
+            left = extract(node["left"])
+            right = extract(node["right"])
+            if right in sources or right in tainted_vars:
+                tainted_vars[left] = {
+                    "source": tainted_vars.get(right, {"source": right, "line": node["loc"]["start"]["line"]})["source"],
+                    "line": node["loc"]["start"]["line"]
+                }
+                print(f"Tainted Variable Added: {left} = {tainted_vars[left]}") 
+
+        if node["type"] == "CallExpression":
+            function_name = extract(node["callee"])
+            if function_name in sinks:
+                for arg in node["arguments"]:
+                    arg_name = extract(arg)
+                    if arg_name in tainted_vars:
+                        sanitized_flow = []
+                        if sanitized(arg, sanitizers):
+                            sanitized_flow = [
+                                [sanitize, node["loc"]["start"]["line"]] for sanitize in sanitizers
+                            ]
+
+                        vulnerability = {
+                            "vulnerability": f"{pattern['vulnerability']}_1",
+                            "source": [tainted_vars[arg_name]["source"], tainted_vars[arg_name]["line"]],
+                            "sink": [function_name, node["loc"]["start"]["line"]],
+                            "unsanitized_flows": "no" if sanitized_flow else "yes",
+                            "sanitized_flows": sanitized_flow,
+                            "implicit": implicit
+                        }
+                        vulnerabilities.append(vulnerability)
+                        print(f"Detected Vulnerability: {vulnerability}") 
+
+        for key, child in node.items():
+            if isinstance(child, list):
+                for subchild in child:
+                    traverse(subchild)
+            elif isinstance(child, dict):
+                traverse(child)
+
+    traverse(ast)
+    print(f"Final Tainted Variables: {tainted_vars}")  
+    print(f"Final Vulnerabilities: {vulnerabilities}") 
     return vulnerabilities
 
 def extract(node):
@@ -67,6 +120,11 @@ def main():
     patterns = json.loads(load_file(patterns_path))
 
     results = analyze(slice_code, patterns)
+    
+    print("\033[34mDetected Vulnerabilities:\033[0m")
+    print(json.dumps(results, indent=4))
+
+    print(f"\033[32mSaving results to: {output_file}\033[0m")
     save(output_file, results)
 
 if __name__ == "__main__":
