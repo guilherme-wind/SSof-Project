@@ -23,7 +23,6 @@ def analyze(slice_code, patterns):
             results.extend(result)
     return results
 
-# Traverse the AST to identify flows between sources and sinks
 def vulnerabilities(ast, pattern):
     sources = pattern["sources"]
     sinks = pattern["sinks"]
@@ -32,9 +31,12 @@ def vulnerabilities(ast, pattern):
 
     tainted_vars = {} 
     vulnerabilities = [] 
+    vulnerability_counter = 0  # Initialize the counter here
 
-    #Recursively traverse AST nodes to identify tainted variables and vulnerabilities
+    # Recursively traverse AST nodes to identify tainted variables and vulnerabilities
     def traverse(node):
+        nonlocal vulnerability_counter  # Ensure the counter is accessible within the nested function
+
         if not isinstance(node, dict) or "type" not in node:
             return
 
@@ -50,6 +52,13 @@ def vulnerabilities(ast, pattern):
             elif right["type"] == "CallExpression" and extract(right["callee"]) in sources:
                 tainted_vars[left] = {"source": extract(right["callee"]), "line": node["loc"]["start"]["line"]}
                 print(f"Tainted Variable Added (CallExpression): {left} = {tainted_vars[left]}")
+            elif right["type"] == "Identifier" and right["name"] in tainted_vars:
+                tainted_vars[left] = tainted_vars[right["name"]]
+                print(f"Tainted Variable Propagated: {left} = {tainted_vars[left]}")
+            elif right["type"] == "Literal":
+                if right["value"] in tainted_vars:
+                    tainted_vars[left] = tainted_vars[right["value"]]
+                    print(f"Tainted Variable Propagated (Literal): {left} = {tainted_vars[left]}")
 
         # Handle function calls to identify flows into sinks
         if node["type"] == "CallExpression":
@@ -67,7 +76,7 @@ def vulnerabilities(ast, pattern):
 
                         # Record the detected vulnerability
                         vulnerability = {
-                            "vulnerability": f"{pattern['vulnerability']}_1",
+                            "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
                             "source": [tainted_vars[arg_name]["source"], tainted_vars[arg_name]["line"]],
                             "sink": [function_name, node["loc"]["start"]["line"]],
                             "unsanitized_flows": "no" if sanitized_flow else "yes",
@@ -76,6 +85,7 @@ def vulnerabilities(ast, pattern):
                         }
                         vulnerabilities.append(vulnerability)
                         print(f"Detected Vulnerability: {vulnerability}")
+                        vulnerability_counter += 1
                         
         # Recursively process child nodes
         for key, child in node.items():
