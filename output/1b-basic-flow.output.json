@@ -3,14 +3,14 @@
         "vulnerability": "A_1",
         "source": [
             "c",
-            2
+            4
         ],
         "sink": [
             "e",
-            4
+            5
         ],
         "unsanitized_flows": "yes",
         "sanitized_flows": [],
-        "implicit": "no"
+        "implicit": "yes"
     }
 ]
