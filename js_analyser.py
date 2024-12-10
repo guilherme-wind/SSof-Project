@@ -4,7 +4,7 @@ import json
 import esprima
 
 # Load the content of a file and return it as a string
-def load_file(file_path):
+def load_file(file_path) -> str:
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
@@ -23,7 +23,17 @@ def analyze(slice_code, patterns):
             results.extend(result)
     return results
 
-def vulnerabilities(ast, pattern):
+def vulnerabilities(ast: dict, pattern: dict) -> list:
+    """
+    Analyze the AST for vulnerabilities based on the specified pattern.
+
+    Args:
+        ast (dict): The Abstract Syntax Tree (AST) of the JavaScript slice.
+        pattern (dict): The pattern to match vulnerabilities.
+
+    Returns:
+        list: A list of detected vulnerabilities based on the pattern
+    """
     sources = pattern["sources"]
     sinks = pattern["sinks"]
     sanitizers = pattern["sanitizers"]
@@ -35,6 +45,15 @@ def vulnerabilities(ast, pattern):
 
     # Recursively traverse AST nodes to identify tainted variables and vulnerabilities
     def traverse(node):
+        """
+        Recursively traverse the AST nodes to identify tainted variables and vulnerabilities.
+        
+        Args:
+            node (dict): The current AST node to process.
+
+        Returns:
+            None
+        """
         nonlocal vulnerability_counter  # Ensure the counter is accessible within the nested function
 
         if not isinstance(node, dict) or "type" not in node:
@@ -96,12 +115,21 @@ def vulnerabilities(ast, pattern):
                 traverse(child)
 
     traverse(ast)
-    print(f"Final Tainted Variables: {tainted_vars}")
-    print(f"Final Vulnerabilities: {vulnerabilities}")
+    print(f"\033[32mFinal Tainted Variables: {tainted_vars}\033[0m\n")
+    print(f"\033[32mFinal Vulnerabilities: {vulnerabilities}\033[0m\n")
     return vulnerabilities
 
 # Extract the name or value of a node for comparison
 def extract(node):
+    """
+    Extract the name or value of a node for comparison.
+    
+    Args:
+        node (dict): The AST node to extract the name or value from.
+        
+    Returns:
+        str: The name or value of the node.
+    """
     if node["type"] == "Identifier":
         return node["name"]
     if node["type"] == "Literal":
@@ -125,7 +153,7 @@ def save(output_path, results):
     with open(output_path, 'w', encoding='utf-8') as file:
         json.dump(results, file, indent=4)
 
-def main():
+def main() -> int:
     if len(sys.argv) != 3:
         print("\033[31mError: Incorrect number of arguments.\033[0m")
         print("Example of how to call the program:")
@@ -147,6 +175,7 @@ def main():
 
     print(f"\033[32mSaving results to: {output_file}\033[0m")
     save(output_file, results)
+    return 0;
 
 if __name__ == "__main__":
     main()
