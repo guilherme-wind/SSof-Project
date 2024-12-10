@@ -6,6 +6,20 @@
             4
         ],
         "sink": [
+            "d",
+            4
+        ],
+        "unsanitized_flows": "yes",
+        "sanitized_flows": [],
+        "implicit": "yes"
+    },
+    {
+        "vulnerability": "A_1",
+        "source": [
+            "c",
+            4
+        ],
+        "sink": [
             "e",
             5
         ],

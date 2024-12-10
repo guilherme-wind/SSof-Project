@@ -62,22 +62,55 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
         print(f"Processing Node: {node}")
         
         # Handle assignment expressions to propagate taint
+        # E.e. var x = y;
         if node["type"] == "AssignmentExpression":
             left = extract(node["left"])
             right = node["right"]
+            # Check if the right side of the assignment is a source or tainted variable
+            # E.g. var x = y; where y is a source or tainted variable, then x is tainted
             if right["type"] == "Identifier" and right["name"] in sources:
                 tainted_vars[left] = {"source": right["name"], "line": node["loc"]["start"]["line"]}
                 print(f"Tainted Variable Added (Identifier): {left} = {tainted_vars[left]}")
+
+            # Check if the right side of the assignment is a CallExpression with a source
+            # E.g. var x = y(); where y() is a source, then x is tainted
             elif right["type"] == "CallExpression" and extract(right["callee"]) in sources:
                 tainted_vars[left] = {"source": extract(right["callee"]), "line": node["loc"]["start"]["line"]}
                 print(f"Tainted Variable Added (CallExpression): {left} = {tainted_vars[left]}")
+
+            # Check if the right side of the assignment is a tainted variable
+            # E.g. var x = y; where y is tainted, then x is tainted
             elif right["type"] == "Identifier" and right["name"] in tainted_vars:
                 tainted_vars[left] = tainted_vars[right["name"]]
                 print(f"Tainted Variable Propagated: {left} = {tainted_vars[left]}")
+
+            # Check if the right side of the assignment is a MemberExpression with a tainted variable
+            # E.g. var x = y.z; where y.z is tainted, then x is tainted
             elif right["type"] == "Literal":
                 if right["value"] in tainted_vars:
                     tainted_vars[left] = tainted_vars[right["value"]]
                     print(f"Tainted Variable Propagated (Literal): {left} = {tainted_vars[left]}")
+            
+            # if x is in sinks, check if it is sanitized
+            if left in sinks:
+                sanitized_flow = []
+                if sanitized(right, sanitizers):
+                    sanitized_flow = [
+                        [sanitize, node["loc"]["start"]["line"]] for sanitize in sanitizers
+                    ]
+
+                # Record the detected vulnerability
+                vulnerability = {
+                    "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
+                    "source": [tainted_vars[left]["source"], tainted_vars[left]["line"]],
+                    "sink": [left, node["loc"]["start"]["line"]],
+                    "unsanitized_flows": "no" if sanitized_flow else "yes",
+                    "sanitized_flows": sanitized_flow,
+                    "implicit": implicit
+                }
+                vulnerabilities.append(vulnerability)
+                print(f"Detected Vulnerability: {vulnerability}")
+                vulnerability_counter += 1
 
         # Handle function calls to identify flows into sinks
         if node["type"] == "CallExpression":
