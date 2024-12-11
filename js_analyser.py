@@ -41,9 +41,10 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
             left = extract(node["left"])
             right = node["right"]
 
-            # Taint propagation logic
-            if right["type"] == "Identifier" and right["name"] in tainted_vars:
-                tainted_vars[left] = tainted_vars[right["name"]]
+            # Taint propagation logic (order matters)
+            if right["type"] == "Identifier":
+                if right["name"] in tainted_vars:
+                    tainted_vars[left] = tainted_vars[right["name"]]
             elif right["type"] == "CallExpression" and extract(right["callee"]) in sources:
                 tainted_vars[left] = {"source": extract(right["callee"]), "line": node["loc"]["start"]["line"]}
             elif right["type"] == "Identifier" and right["name"] in sources:
@@ -114,7 +115,7 @@ def extract(node):
         object_name = extract(node["object"])
         property_name = extract(node["property"])
         return f"{object_name}.{property_name}"
-    return None
+    return ""
 
 def sanitized(arg, sanitizers):
     if arg["type"] == "CallExpression":
@@ -136,6 +137,20 @@ def main() -> int:
 
     slice_path = sys.argv[1]
     patterns_path = sys.argv[2]
+
+    # Debugging: Print paths
+    print(f"Slice path: {slice_path}")
+    print(f"Patterns path: {patterns_path}")
+    print(f"Current Working Directory: {os.getcwd()}")
+
+    # Check if files exist
+    if not os.path.exists(slice_path):
+        print(f"Error: File not found -> {slice_path}")
+        sys.exit(1)
+    if not os.path.exists(patterns_path):
+        print(f"Error: File not found -> {patterns_path}")
+        sys.exit(1)
+
     slice_name = os.path.basename(slice_path).rsplit('.', 1)[0]
     output_file = f"./output/{slice_name}.output.json"
 
@@ -150,6 +165,7 @@ def main() -> int:
     print(f"\033[32mSaving results to: {output_file}\033[0m")
     save(output_file, results)
     return 0
+
 
 if __name__ == "__main__":
     main()
