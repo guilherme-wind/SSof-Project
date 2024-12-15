@@ -30,7 +30,7 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
     vulnerabilities = []
     vulnerability_counter = 1
 
-    def traverse(node):
+    def traverse(node, implicit_context=False):
         nonlocal vulnerability_counter
 
         if not isinstance(node, dict) or "type" not in node:
@@ -47,8 +47,6 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
                     tainted_vars[left] = tainted_vars[right["name"]]
             elif right["type"] == "CallExpression" and extract(right["callee"]) in sources:
                 tainted_vars[left] = {"source": extract(right["callee"]), "line": node["loc"]["start"]["line"]}
-            elif right["type"] == "Identifier" and right["name"] in sources:
-                tainted_vars[left] = {"source": right["name"], "line": node["loc"]["start"]["line"]}
             elif right["type"] == "Literal" and right["value"] == "":
                 tainted_vars.pop(left, None)  # Clear taint for empty values
             else:
@@ -57,17 +55,16 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
             # Sink detection in assignment
             if left in sinks and left in tainted_vars:
                 sanitized_flow = []
-                if sanitized(right, sanitizers):
-                    sanitized_flow = [
-                        [sanitize, node["loc"]["start"]["line"]] for sanitize in sanitizers
-                    ]
+                sanitization_results = collect_sanitizations(right, sanitizers)
+                if sanitization_results:
+                    sanitized_flow = sanitization_results
                 vulnerability = {
                     "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
                     "source": [tainted_vars[left]["source"], tainted_vars[left]["line"]],
                     "sink": [left, node["loc"]["start"]["line"]],
                     "unsanitized_flows": "no" if sanitized_flow else "yes",
                     "sanitized_flows": sanitized_flow,
-                    "implicit": "no"
+                    "implicit": "yes" if implicit_context else "no"
                 }
                 vulnerabilities.append(vulnerability)
                 vulnerability_counter += 1
@@ -80,31 +77,50 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
                     arg_name = extract(arg)
                     if arg_name in tainted_vars:
                         sanitized_flow = []
-                        if sanitized(arg, sanitizers):
-                            sanitized_flow = [
-                                [sanitize, node["loc"]["start"]["line"]] for sanitize in sanitizers
-                            ]
+                        sanitization_results = collect_sanitizations(arg, sanitizers)
+                        if sanitization_results:
+                            sanitized_flow = sanitization_results
                         vulnerability = {
                             "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
                             "source": [tainted_vars[arg_name]["source"], tainted_vars[arg_name]["line"]],
                             "sink": [function_name, node["loc"]["start"]["line"]],
                             "unsanitized_flows": "no" if sanitized_flow else "yes",
                             "sanitized_flows": sanitized_flow,
-                            "implicit": "no"
+                            "implicit": "yes" if implicit_context else "no"
                         }
                         vulnerabilities.append(vulnerability)
                         vulnerability_counter += 1
+
+        # Handle control flow structures for implicit taint tracking
+        if node["type"] in ["IfStatement", "WhileStatement", "ForStatement"]:
+            if "consequent" in node:  # IfStatement
+                traverse(node["consequent"], implicit_context=True)
+            if "alternate" in node and node["alternate"]:  # IfStatement with else block
+                traverse(node["alternate"], implicit_context=True)
+            if "body" in node:  # Loops
+                traverse(node["body"], implicit_context=True)
 
         # Traverse child nodes
         for child in node.values():
             if isinstance(child, list):
                 for subchild in child:
-                    traverse(subchild)
+                    traverse(subchild, implicit_context)
             elif isinstance(child, dict):
-                traverse(child)
+                traverse(child, implicit_context)
+
 
     traverse(ast)
     return vulnerabilities
+
+def collect_sanitizations(node, sanitizers):
+    sanitization_flow = []
+    if node["type"] == "CallExpression":
+        function_name = extract(node["callee"])
+        if function_name in sanitizers:
+            sanitization_flow.append([function_name, node["loc"]["start"]["line"]])
+        for arg in node["arguments"]:
+            sanitization_flow.extend(collect_sanitizations(arg, sanitizers))
+    return sanitization_flow
 
 def extract(node):
     if node["type"] == "Identifier":
@@ -116,12 +132,6 @@ def extract(node):
         property_name = extract(node["property"])
         return f"{object_name}.{property_name}"
     return ""
-
-def sanitized(arg, sanitizers):
-    if arg["type"] == "CallExpression":
-        function_name = extract(arg["callee"])
-        return function_name in sanitizers
-    return False
 
 def save(output_path, results):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -165,7 +175,6 @@ def main() -> int:
     print(f"\033[32mSaving results to: {output_file}\033[0m")
     save(output_file, results)
     return 0
-
 
 if __name__ == "__main__":
     main()
