@@ -2,6 +2,31 @@ import sys
 import os
 import json
 import esprima
+import logging
+import argparse
+
+# Safeguard to prevent infinite loops
+MAX_CYCLE_ITERATIONS = 30
+
+LOG_LEVELS = {
+    'INFO': logging.INFO,
+    'DEBUG': logging.DEBUG,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR,
+    'CRITICAL': logging.CRITICAL,
+}
+
+def make_folder_exist(folder):
+    """
+    Creates the specified folder if it doesn't exist
+    """
+    os.makedirs(folder, exist_ok=True)
+
+def extract_filename_without_extension(file_path):
+    """
+    Returns the filename without the path and extension
+    """
+    return os.path.splitext(os.path.basename(file_path))[0]
 
 def load_file(file_path) -> str:
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -108,7 +133,6 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
             elif isinstance(child, dict):
                 traverse(child, implicit_context)
 
-
     traverse(ast)
     return vulnerabilities
 
@@ -139,14 +163,24 @@ def save(output_path, results):
         json.dump(results, file, indent=4)
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("\033[31mError: Incorrect number of arguments.\033[0m")
-        print("Example of how to call the program:")
-        print("\033[32mUsage: python ./js_analyser.py <slice.js> <patterns.json>\033[0m\n")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Static analysis tool for identifying data and information flow violations')
+    parser.add_argument('slice', help='JavaScript file to be analyzed', type=str)
+    parser.add_argument('patterns', help='Patterns file to be checked', type=str)
+    parser.add_argument('--log-level', default='INFO', help='Log level', choices=['INFO', 'DEBUG', 'WARNING', 'ERROR', 'CRITICAL'])
+    parser.add_argument('--log-file', default='./analyser.log', help='Log file location', type=str)
+    parser.add_argument('--output-folder', default='./output', help='Output folder location', type=str)
+    args = parser.parse_args()
 
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    # Setup logging
+    logging_level = LOG_LEVELS.get(args.log_level, logging.INFO)
+    logging.basicConfig(filename=args.log_file, level=logging_level, format='%(asctime)s - %(levelname)s [%(funcName)s] %(message)s')
+    logger = logging.getLogger()
+
+    logger.info(f'Starting {parser.prog}')
+    logger.debug(f'Arguments passed to js_analyser: {args}')
+
+    slice_path = args.slice
+    patterns_path = args.patterns
 
     # Debugging: Print paths
     print(f"Slice path: {slice_path}")
@@ -155,24 +189,29 @@ def main() -> int:
 
     # Check if files exist
     if not os.path.exists(slice_path):
+        logger.error(f"Error: File not found -> {slice_path}")
         print(f"Error: File not found -> {slice_path}")
         sys.exit(1)
     if not os.path.exists(patterns_path):
+        logger.error(f"Error: File not found -> {patterns_path}")
         print(f"Error: File not found -> {patterns_path}")
         sys.exit(1)
 
-    slice_name = os.path.basename(slice_path).rsplit('.', 1)[0]
-    output_file = f"./output/{slice_name}.output.json"
+    slice_name = extract_filename_without_extension(slice_path)
+    output_file = f"{args.output_folder}/{slice_name}.output.json"
 
     slice_code = load_file(slice_path)
     patterns = json.loads(load_file(patterns_path))
 
     results = analyze(slice_code, patterns)
 
+    logger.info("Detected Vulnerabilities:")
     print("\033[34mDetected Vulnerabilities:\033[0m")
     print(json.dumps(results, indent=4))
 
+    logger.info(f"Saving results to: {output_file}")
     print(f"\033[32mSaving results to: {output_file}\033[0m")
+    make_folder_exist(args.output_folder)
     save(output_file, results)
     return 0
 
