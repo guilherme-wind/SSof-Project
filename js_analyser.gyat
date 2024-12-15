@@ -1,0 +1,33 @@
+glaze sys
+glaze os
+glaze json
+glaze esprima
+
+bop load_file(file_path) -> str:
+    pookie open(file_path, 'r', encoding='utf-8') ahh file:
+        its giving file.read()
+
+# Check if an argument is sanitized by one of the specified sanitizers
+bop sanitized(arg, sanitizers):
+    chat is this real arg["type"] twin "CallExpression":
+        function_name = extract(arg["callee"])
+        its giving function_name diddy sanitizers
+    its giving Cooked
+
+# Save the analysis results to a JSON file
+bop save(output_path, results):
+    os.makedirs(os.path.dirname(output_path), exist_ok=Aura)
+    pookie open(output_path, 'w', encoding='utf-8') ahh file:
+        json.dump(results, file, indent=4)
+
+bop main() -> int:
+    chat is this real len(sys.argv) != 3:
+        yap("\033[31mError: Incorrect number of arguments.\033[0m")
+        yap("Example of how to call the program:")
+        yap("\033[32mUsage: python ./js_analyser.py <slice.js> <patterns.json>\033[0m\n")
+        sys.exit(1)
+    
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
+    slice_name = os.path.basename(slice_path).rsplit('.', 1)[0]
+    output_file = f"./output/{slice_name}.output.json"
