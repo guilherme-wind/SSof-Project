@@ -29,14 +29,29 @@ def extract_filename_without_extension(file_path):
     return os.path.splitext(os.path.basename(file_path))[0]
 
 def load_file(file_path) -> str:
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        logging.error(f"Failed to load file {file_path}: {e}")
+        sys.exit(1)
+
+def validate_patterns(patterns):
+    """
+    Validates the structure of the patterns file.
+    Raises ValueError if the required keys are missing or invalid.
+    """
+    required_keys = {"sources", "sinks", "sanitizers", "vulnerability"}
+    for index, pattern in enumerate(patterns, start=1):
+        missing_keys = required_keys - pattern.keys()
+        if missing_keys:
+            raise ValueError(f"Pattern at index {index} is missing required keys: {missing_keys}")
 
 def analyze(slice_code, patterns):
     try:
         parsed_ast = esprima.parseScript(slice_code, loc=True).toDict()
     except Exception as e:
-        print(f"Error parsing JavaScript slice: {e}")
+        logging.error(f"Error parsing JavaScript slice: {e}")
         sys.exit(1)
 
     results = []
@@ -117,7 +132,7 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
                         vulnerability_counter += 1
 
         # Handle control flow structures for implicit taint tracking
-        if node["type"] in ["IfStatement", "WhileStatement", "ForStatement"]:
+        if node["type"] in ["IfStatement", "WhileStatement", "ForStatement", "SwitchStatement"]:
             if "consequent" in node:  # IfStatement
                 traverse(node["consequent"], implicit_context=True)
             if "alternate" in node and node["alternate"]:  # IfStatement with else block
@@ -202,6 +217,13 @@ def main() -> int:
 
     slice_code = load_file(slice_path)
     patterns = json.loads(load_file(patterns_path))
+
+    try:
+        validate_patterns(patterns)
+    except ValueError as e:
+        logger.error(f"Invalid patterns file: {e}")
+        print(f"Error: Invalid patterns file -> {e}")
+        sys.exit(1)
 
     results = analyze(slice_code, patterns)
 

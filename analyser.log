@@ -94,3 +94,147 @@
 2024-12-15 18:16:18,875 - INFO [main] Starting js_analyser.py
 2024-12-15 18:16:18,876 - INFO [main] Detected Vulnerabilities:
 2024-12-15 18:16:18,876 - INFO [main] Saving results to: ./output/9-regions-guards.output.json
+2024-12-16 19:34:23,142 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:23,178 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:23,178 - INFO [main] Saving results to: ./output/1a-basic-flow.output.json
+2024-12-16 19:34:23,905 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:23,928 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:23,928 - INFO [main] Saving results to: ./output/1b-basic-flow.output.json
+2024-12-16 19:34:24,518 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:24,550 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:24,550 - INFO [main] Saving results to: ./output/2-expr-binary-ops.output.json
+2024-12-16 19:34:25,068 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:25,105 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:25,105 - INFO [main] Saving results to: ./output/3a-expr-func-calls.output.json
+2024-12-16 19:34:25,667 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:25,698 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:25,698 - INFO [main] Saving results to: ./output/3b-expr-func-calls.output.json
+2024-12-16 19:34:26,216 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:26,247 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:26,247 - INFO [main] Saving results to: ./output/3c-expr-attributes.output.json
+2024-12-16 19:34:26,745 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:26,769 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:26,769 - INFO [main] Saving results to: ./output/4a-conds-branching.output.json
+2024-12-16 19:34:27,270 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:27,289 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:27,289 - INFO [main] Saving results to: ./output/4b-conds-branching.output.json
+2024-12-16 19:34:27,800 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:27,819 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:27,819 - INFO [main] Saving results to: ./output/5a-loops-unfolding.output.json
+2024-12-16 19:34:28,343 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:28,353 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:28,353 - INFO [main] Saving results to: ./output/5b-loops-unfolding.output.json
+2024-12-16 19:34:28,884 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:28,902 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:28,902 - INFO [main] Saving results to: ./output/5c-loops-unfolding.output.json
+2024-12-16 19:34:29,403 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:29,437 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:29,437 - INFO [main] Saving results to: ./output/6a-sanitization.output.json
+2024-12-16 19:34:29,998 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:30,016 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:30,016 - INFO [main] Saving results to: ./output/6b-sanitization.output.json
+2024-12-16 19:34:30,522 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:30,537 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:30,537 - INFO [main] Saving results to: ./output/7-conds-implicit.output.json
+2024-12-16 19:34:31,040 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:31,070 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:31,070 - INFO [main] Saving results to: ./output/8-loops-implicit.output.json
+2024-12-16 19:34:31,580 - INFO [main] Starting js_analyser.py
+2024-12-16 19:34:31,598 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:34:31,598 - INFO [main] Saving results to: ./output/9-regions-guards.output.json
+2024-12-16 19:52:59,852 - INFO [main] Starting js_analyser.py
+2024-12-16 19:52:59,852 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:52:59,852 - INFO [main] Saving results to: ./output/1a-basic-flow.output.json
+2024-12-16 19:53:00,541 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:00,544 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:00,544 - INFO [main] Saving results to: ./output/1b-basic-flow.output.json
+2024-12-16 19:53:01,043 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:01,043 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:01,043 - INFO [main] Saving results to: ./output/2-expr-binary-ops.output.json
+2024-12-16 19:53:01,568 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:01,570 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:01,570 - INFO [main] Saving results to: ./output/3a-expr-func-calls.output.json
+2024-12-16 19:53:02,076 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:02,090 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:02,090 - INFO [main] Saving results to: ./output/3b-expr-func-calls.output.json
+2024-12-16 19:53:02,597 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:02,597 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:02,597 - INFO [main] Saving results to: ./output/3c-expr-attributes.output.json
+2024-12-16 19:53:03,117 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:03,131 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:03,131 - INFO [main] Saving results to: ./output/4a-conds-branching.output.json
+2024-12-16 19:53:03,643 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:03,656 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:03,656 - INFO [main] Saving results to: ./output/4b-conds-branching.output.json
+2024-12-16 19:53:04,176 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:04,176 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:04,176 - INFO [main] Saving results to: ./output/5a-loops-unfolding.output.json
+2024-12-16 19:53:04,720 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:04,738 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:04,738 - INFO [main] Saving results to: ./output/5b-loops-unfolding.output.json
+2024-12-16 19:53:05,241 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:05,241 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:05,241 - INFO [main] Saving results to: ./output/5c-loops-unfolding.output.json
+2024-12-16 19:53:05,758 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:05,758 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:05,758 - INFO [main] Saving results to: ./output/6a-sanitization.output.json
+2024-12-16 19:53:06,292 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:06,292 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:06,292 - INFO [main] Saving results to: ./output/6b-sanitization.output.json
+2024-12-16 19:53:06,810 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:06,810 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:06,810 - INFO [main] Saving results to: ./output/7-conds-implicit.output.json
+2024-12-16 19:53:07,316 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:07,316 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:07,316 - INFO [main] Saving results to: ./output/8-loops-implicit.output.json
+2024-12-16 19:53:07,833 - INFO [main] Starting js_analyser.py
+2024-12-16 19:53:07,833 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:53:07,833 - INFO [main] Saving results to: ./output/9-regions-guards.output.json
+2024-12-16 19:57:28,733 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:28,733 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:28,733 - INFO [main] Saving results to: ./output/1a-basic-flow.output.json
+2024-12-16 19:57:29,419 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:29,421 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:29,421 - INFO [main] Saving results to: ./output/1b-basic-flow.output.json
+2024-12-16 19:57:29,971 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:29,974 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:29,974 - INFO [main] Saving results to: ./output/2-expr-binary-ops.output.json
+2024-12-16 19:57:30,483 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:30,493 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:30,493 - INFO [main] Saving results to: ./output/3a-expr-func-calls.output.json
+2024-12-16 19:57:31,014 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:31,014 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:31,014 - INFO [main] Saving results to: ./output/3b-expr-func-calls.output.json
+2024-12-16 19:57:31,556 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:31,556 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:31,556 - INFO [main] Saving results to: ./output/3c-expr-attributes.output.json
+2024-12-16 19:57:32,062 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:32,071 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:32,071 - INFO [main] Saving results to: ./output/4a-conds-branching.output.json
+2024-12-16 19:57:32,628 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:32,630 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:32,630 - INFO [main] Saving results to: ./output/4b-conds-branching.output.json
+2024-12-16 19:57:33,125 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:33,125 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:33,125 - INFO [main] Saving results to: ./output/5a-loops-unfolding.output.json
+2024-12-16 19:57:33,656 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:33,664 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:33,664 - INFO [main] Saving results to: ./output/5b-loops-unfolding.output.json
+2024-12-16 19:57:34,167 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:34,167 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:34,167 - INFO [main] Saving results to: ./output/5c-loops-unfolding.output.json
+2024-12-16 19:57:34,682 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:34,682 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:34,682 - INFO [main] Saving results to: ./output/6a-sanitization.output.json
+2024-12-16 19:57:35,199 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:35,200 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:35,200 - INFO [main] Saving results to: ./output/6b-sanitization.output.json
+2024-12-16 19:57:35,702 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:35,702 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:35,702 - INFO [main] Saving results to: ./output/7-conds-implicit.output.json
+2024-12-16 19:57:36,218 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:36,220 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:36,220 - INFO [main] Saving results to: ./output/8-loops-implicit.output.json
+2024-12-16 19:57:36,726 - INFO [main] Starting js_analyser.py
+2024-12-16 19:57:36,728 - INFO [main] Detected Vulnerabilities:
+2024-12-16 19:57:36,731 - INFO [main] Saving results to: ./output/9-regions-guards.output.json
