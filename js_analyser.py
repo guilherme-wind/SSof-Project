@@ -5,17 +5,6 @@ import esprima
 import logging
 import argparse
 
-# Safeguard to prevent infinite loops
-MAX_CYCLE_ITERATIONS = 30
-
-LOG_LEVELS = {
-    'INFO': logging.INFO,
-    'DEBUG': logging.DEBUG,
-    'WARNING': logging.WARNING,
-    'ERROR': logging.ERROR,
-    'CRITICAL': logging.CRITICAL,
-}
-
 def make_folder_exist(folder):
     """
     Creates the specified folder if it doesn't exist
@@ -186,13 +175,6 @@ def main() -> int:
     parser.add_argument('--output-folder', default='./output', help='Output folder location', type=str)
     args = parser.parse_args()
 
-    # Setup logging
-    logging_level = LOG_LEVELS.get(args.log_level, logging.INFO)
-    logging.basicConfig(filename=args.log_file, level=logging_level, format='%(asctime)s - %(levelname)s [%(funcName)s] %(message)s')
-    logger = logging.getLogger()
-
-    logger.info(f'Starting {parser.prog}')
-    logger.debug(f'Arguments passed to js_analyser: {args}')
 
     slice_path = args.slice
     patterns_path = args.patterns
@@ -204,11 +186,9 @@ def main() -> int:
 
     # Check if files exist
     if not os.path.exists(slice_path):
-        logger.error(f"Error: File not found -> {slice_path}")
         print(f"Error: File not found -> {slice_path}")
         sys.exit(1)
     if not os.path.exists(patterns_path):
-        logger.error(f"Error: File not found -> {patterns_path}")
         print(f"Error: File not found -> {patterns_path}")
         sys.exit(1)
 
@@ -221,17 +201,14 @@ def main() -> int:
     try:
         validate_patterns(patterns)
     except ValueError as e:
-        logger.error(f"Invalid patterns file: {e}")
         print(f"Error: Invalid patterns file -> {e}")
         sys.exit(1)
 
     results = analyze(slice_code, patterns)
 
-    logger.info("Detected Vulnerabilities:")
     print("\033[34mDetected Vulnerabilities:\033[0m")
     print(json.dumps(results, indent=4))
 
-    logger.info(f"Saving results to: {output_file}")
     print(f"\033[32mSaving results to: {output_file}\033[0m")
     make_folder_exist(args.output_folder)
     save(output_file, results)
