@@ -166,15 +166,17 @@ def save(output_path, results):
     with open(output_path, 'w', encoding='utf-8') as file:
         json.dump(results, file, indent=4)
 
+class CustomArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        sys.stderr.write(f"js_analyser.py: error: {message}\n")
+        sys.exit(2)
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Static analysis tool for identifying data and information flow violations')
+    parser = CustomArgumentParser(description='Static analysis tool for identifying data and information flow violations', add_help=False)
     parser.add_argument('slice', help='JavaScript file to be analyzed', type=str)
     parser.add_argument('patterns', help='Patterns file to be checked', type=str)
-    parser.add_argument('--log-level', default='INFO', help='Log level', choices=['INFO', 'DEBUG', 'WARNING', 'ERROR', 'CRITICAL'])
-    parser.add_argument('--log-file', default='./analyser.log', help='Log file location', type=str)
-    parser.add_argument('--output-folder', default='./output', help='Output folder location', type=str)
     args = parser.parse_args()
-
 
     slice_path = args.slice
     patterns_path = args.patterns
