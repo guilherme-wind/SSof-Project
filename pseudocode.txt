@@ -1,0 +1,137 @@
+global var tainted_var = [];
+global var vulnerabilities = [];
+
+// A stack to save the info about in which block it is,
+// e.g.: in an If block inside a While block, etc...
+global var stack = new Stack();
+
+func analyze(Dict: node) {
+    switch node.type {
+        case contains 'Statement' => {
+            statement(node);
+        }
+        case contains 'Declaration' => {
+            declaration(node);
+        }
+        case contains 'Expression' => {
+            expression(node);
+        }
+    }
+}
+
+// Anything that can be from a single line of code
+// to a block of code
+// E.g.: Statement 1:   let a = b;
+//       Statement 2:   if (a == 0 ) {
+//                          ...
+//                      }
+func statement(node) {
+    switch node.type {
+        case 'ExpressionStatement' {
+            expression(node);
+        }
+        case 'BlockStatement' {
+            for (statementnode : node.body) {
+                statement(statementnode);
+            }
+        }
+        case 'DebuggerStatement' || 'EmptyStatement' || 'WithStatement' {
+            // Not as part of the project
+            return;
+        } 
+        case 'ReturnStatement' {
+            if node.argument != null {
+                statement(node.argument);
+            }
+            stack.pop();
+        }
+        case 'LabeledStatement' || 'BreakStatement' || 'ContinueStatement' {
+            // TODO: idk
+        }
+        case 'IfStatement' {
+            stack.push("If");
+            expression(node.test);
+            statement(node.consequent);
+            if (node.alternate != null) {
+                statement(node.alternate);
+            }
+        }
+        case 'SwtichStatement' {
+            stack.push("Swich");
+            expresstion(node.discriminant);
+            for (case : node.cases) {
+                if (case.test != null) {
+                    expression(case.test);
+                    stack.pop();
+                    // TODO: sus
+                }
+                for (consequent : case.consequent) {
+                    state(consequent);
+                }
+            }
+        }
+        case 'ThrowStatement' || 'TryStatement' || 'CatchClause' {
+            // Not as part of the project
+            return;
+        }
+        case 'WhileStatement' || 'DoWhileStatement ' {
+            stack.push("While");
+            expression(node.test);
+            statement(node.body);
+            stack.pop();
+        }
+        case 'ForStatement' {
+            // Not as part of the project
+            return;
+        }
+        case 'ForInStatement' {
+            // Not as part of the project
+            return;
+        }
+    }
+}
+
+// Anything that declares something, from variables to
+// functions
+func declaration(node) {
+    switch node.type {
+        case 'FunctionDeclaration' {
+            // TODO: idk
+        }
+        case 'VariableDeclaration' {
+            for (declararator : node.declarations) {
+                expression(declararator.init);
+            }
+        }
+    }
+}
+
+// 
+func expression(node) {
+    switch node.type {
+        case 'ThisExpression' {
+            return;
+        }
+        case 'ArrayExpression' {
+            for (element : node.elements) {
+                if (element == null)
+                    continue;
+                expression(element);
+            }
+        }
+        case 'ObjectExpression' {
+            // Not as part of the project
+            return;
+        }
+        case 'FunctionExpression' {
+            return;
+        }
+        case 'UnaryExpression' || 'UpdateExpression' {
+            expression(node.argument);
+        }
+        case 'BinaryExpression ' {
+            expression(argument);
+        }
+        // TODO: complete the rest
+    }
+}
