@@ -1,0 +1,98 @@
+[
+    {
+        "slice_name": "1a-basic-flow",
+        "expected_output_file": "./examples/1-basic-flow/1a-basic-flow.output.json",
+        "generated_output_file": "./output/1a-basic-flow.output.json",
+        "match": true
+    },
+    {
+        "slice_name": "1b-basic-flow",
+        "expected_output_file": "./examples/1-basic-flow/1b-basic-flow.output.json",
+        "generated_output_file": "./output/1b-basic-flow.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "2-expr-binary-ops",
+        "expected_output_file": "./examples/2-expr-binary-ops/2-expr-binary-ops.output.json",
+        "generated_output_file": "./output/2-expr-binary-ops.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "3a-expr-func-calls",
+        "expected_output_file": "./examples/3-expr/3a-expr-func-calls.output.json",
+        "generated_output_file": "./output/3a-expr-func-calls.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "3b-expr-func-calls",
+        "expected_output_file": "./examples/3-expr/3b-expr-func-calls.output.json",
+        "generated_output_file": "./output/3b-expr-func-calls.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "3c-expr-attributes",
+        "expected_output_file": "./examples/3-expr/3c-expr-attributes.output.json",
+        "generated_output_file": "./output/3c-expr-attributes.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "4a-conds-branching",
+        "expected_output_file": "./examples/4-conds-branching/4a-conds-branching.output.json",
+        "generated_output_file": "./output/4a-conds-branching.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "4b-conds-branching",
+        "expected_output_file": "./examples/4-conds-branching/4b-conds-branching.output.json",
+        "generated_output_file": "./output/4b-conds-branching.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "5a-loops-unfolding",
+        "expected_output_file": "./examples/5-loops/5a-loops-unfolding.output.json",
+        "generated_output_file": "./output/5a-loops-unfolding.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "5b-loops-unfolding",
+        "expected_output_file": "./examples/5-loops/5b-loops-unfolding.output.json",
+        "generated_output_file": "./output/5b-loops-unfolding.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "5c-loops-unfolding",
+        "expected_output_file": "./examples/5-loops/5c-loops-unfolding.output.json",
+        "generated_output_file": "./output/5c-loops-unfolding.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "6a-sanitization",
+        "expected_output_file": "./examples/6-sanitization/6a-sanitization.output.json",
+        "generated_output_file": "./output/6a-sanitization.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "6b-sanitization",
+        "expected_output_file": "./examples/6-sanitization/6b-sanitization.output.json",
+        "generated_output_file": "./output/6b-sanitization.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "7-conds-implicit",
+        "expected_output_file": "./examples/7-conds-implicit/7-conds-implicit.output.json",
+        "generated_output_file": "./output/7-conds-implicit.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "8-loops-implicit",
+        "expected_output_file": "./examples/8-loops-implicit/8-loops-implicit.output.json",
+        "generated_output_file": "./output/8-loops-implicit.output.json",
+        "match": false
+    },
+    {
+        "slice_name": "9-regions-guards",
+        "expected_output_file": "./examples/9-regions-guards/9-regions-guards.output.json",
+        "generated_output_file": "./output/9-regions-guards.output.json",
+        "match": false
+    }
+]
