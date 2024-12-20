@@ -1,3 +1,0 @@
-Mismatch found for 6a-sanitization:
-
-Outputs differ.

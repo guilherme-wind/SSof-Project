@@ -42,6 +42,8 @@ def main():
     if not os.path.exists(compare_directory):
         os.makedirs(compare_directory)
 
+    comparison_results = []
+
     for js_folder in js_folders:
         js_files = find_files(js_folder, '.js')
         pattern_files = find_files(js_folder, 'patterns.json')
@@ -54,16 +56,22 @@ def main():
                     expected_output_file = f"{js_folder}/{slice_name}.output.json"
                     generated_output_file = f"{output_directory}/{slice_name}.output.json"
                     
-                    if compare_outputs(expected_output_file, generated_output_file):
-                        result = f"Match found for {slice_name}:\n\nOutputs are identical.\n"
-                    else:
-                        result = f"Mismatch found for {slice_name}:\n\nOutputs differ.\n"
+                    result = {
+                        "slice_name": slice_name,
+                        "expected_output_file": expected_output_file,
+                        "generated_output_file": generated_output_file,
+                        "match": compare_outputs(expected_output_file, generated_output_file)
+                    }
 
-                    # Save result to a file in the compare directory
-                    compare_file_path = f"{compare_directory}/{slice_name}.txt"
-                    with open(compare_file_path, 'w') as compare_file:
-                        compare_file.write(result)
+                    comparison_results.append(result)
                     break  # Break the loop once the match is found
+
+    # Save comparison results to a JSON file
+    compare_file_path = f"{compare_directory}/comparison_results.json"
+    with open(compare_file_path, 'w') as compare_file:
+        json.dump(comparison_results, compare_file, indent=4)
+
+    print(f"Comparison results saved to: {compare_file_path}")
 
 if __name__ == "__main__":
     main()

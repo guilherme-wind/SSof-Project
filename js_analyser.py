@@ -74,6 +74,8 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
             if right["type"] == "Identifier":
                 if right["name"] in tainted_vars:
                     tainted_vars[left] = tainted_vars[right["name"]]
+                elif left in tainted_vars:
+                    tainted_vars[right["name"]] = tainted_vars[left]
             elif right["type"] == "CallExpression" and extract(right["callee"]) in sources:
                 tainted_vars[left] = {"source": extract(right["callee"]), "line": node["loc"]["start"]["line"]}
             elif right["type"] == "Literal" and right["value"] == "":
@@ -83,10 +85,7 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
 
             # Sink detection in assignment
             if left in sinks and left in tainted_vars:
-                sanitized_flow = []
-                sanitization_results = collect_sanitizations(right, sanitizers)
-                if sanitization_results:
-                    sanitized_flow = sanitization_results
+                sanitized_flow = collect_sanitizations(right, sanitizers)
                 vulnerability = {
                     "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
                     "source": [tainted_vars[left]["source"], tainted_vars[left]["line"]],
@@ -105,10 +104,7 @@ def vulnerabilities(ast: dict, pattern: dict) -> list:
                 for arg in node["arguments"]:
                     arg_name = extract(arg)
                     if arg_name in tainted_vars:
-                        sanitized_flow = []
-                        sanitization_results = collect_sanitizations(arg, sanitizers)
-                        if sanitization_results:
-                            sanitized_flow = sanitization_results
+                        sanitized_flow = collect_sanitizations(arg, sanitizers)
                         vulnerability = {
                             "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
                             "source": [tainted_vars[arg_name]["source"], tainted_vars[arg_name]["line"]],
@@ -173,7 +169,6 @@ def save(output_path, data):
 
     print(f"Results saved to: {final_path}")
 
-
 class CustomArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         self.print_usage(sys.stderr)
@@ -184,7 +179,7 @@ def main():
     """
     Main function for analyzing JavaScript files with defined patterns.
     """
-    parser = argparse.ArgumentParser(description="Static analysis tool for identifying data and information flow violations")
+    parser = CustomArgumentParser(description="Static analysis tool for identifying data and information flow violations")
     parser.add_argument('slice', help='JavaScript file to analyze')
     parser.add_argument('patterns', help='JSON file with analysis patterns')
     args = parser.parse_args()

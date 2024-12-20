@@ -1,3 +1,0 @@
-Mismatch found for 1b-basic-flow:
-
-Outputs differ.
