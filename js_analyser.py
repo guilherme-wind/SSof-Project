@@ -161,10 +161,18 @@ def extract(node):
         return f"{object_name}.{property_name}"
     return ""
 
-def save(output_path, results):
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as file:
-        json.dump(results, file, indent=4)
+def save(output_path, data):
+    """
+    Save data to the specified output path, ensuring it is saved inside an 'output' folder.
+    """
+    output_directory = os.path.join("output", os.path.dirname(output_path) or "")
+    os.makedirs(output_directory, exist_ok=True)
+    final_path = os.path.join("output", output_path)
+    with open(final_path, 'w', encoding='utf-8') as file:
+        json.dump(data, file, indent=4)
+
+    print(f"Results saved to: {final_path}")
+
 
 class CustomArgumentParser(argparse.ArgumentParser):
     def error(self, message):
@@ -172,49 +180,36 @@ class CustomArgumentParser(argparse.ArgumentParser):
         sys.stderr.write(f"js_analyser.py: error: {message}\n")
         sys.exit(2)
 
-def main() -> int:
-    parser = CustomArgumentParser(description='Static analysis tool for identifying data and information flow violations', add_help=False)
-    parser.add_argument('slice', help='JavaScript file to be analyzed', type=str)
-    parser.add_argument('patterns', help='Patterns file to be checked', type=str)
+def main():
+    """
+    Main function for analyzing JavaScript files with defined patterns.
+    """
+    parser = argparse.ArgumentParser(description="Static analysis tool for identifying data and information flow violations")
+    parser.add_argument('slice', help='JavaScript file to analyze')
+    parser.add_argument('patterns', help='JSON file with analysis patterns')
     args = parser.parse_args()
 
-    slice_path = args.slice
-    patterns_path = args.patterns
+    slice_path, patterns_path = args.slice, args.patterns
+    print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
-    # Debugging: Print paths
-    print(f"Slice path: {slice_path}")
-    print(f"Patterns path: {patterns_path}")
-    print(f"Current Working Directory: {os.getcwd()}")
+    # Validate input files
+    for path in [slice_path, patterns_path]:
+        if not os.path.exists(path):
+            sys.exit(f"Error: File not found -> {path}")
 
-    # Check if files exist
-    if not os.path.exists(slice_path):
-        print(f"Error: File not found -> {slice_path}")
-        sys.exit(1)
-    if not os.path.exists(patterns_path):
-        print(f"Error: File not found -> {patterns_path}")
-        sys.exit(1)
-
-    slice_name = extract_filename_without_extension(slice_path)
-    output_file = f"{args.output_folder}/{slice_name}.output.json"
-
+    # Load data
     slice_code = load_file(slice_path)
     patterns = json.loads(load_file(patterns_path))
+    validate_patterns(patterns)
 
-    try:
-        validate_patterns(patterns)
-    except ValueError as e:
-        print(f"Error: Invalid patterns file -> {e}")
-        sys.exit(1)
-
+    # Analyze and display results
     results = analyze(slice_code, patterns)
+    print(f"\033[34mDetected Vulnerabilities:\033[0m\n{json.dumps(results, indent=4)}")
 
-    print("\033[34mDetected Vulnerabilities:\033[0m")
-    print(json.dumps(results, indent=4))
-
-    print(f"\033[32mSaving results to: {output_file}\033[0m")
-    make_folder_exist(args.output_folder)
+    # Save results
+    output_file = f"{extract_filename_without_extension(slice_path)}.output.json"
+    print(f"\033[32mResults saved to: {output_file}\033[0m")
     save(output_file, results)
-    return 0
 
 if __name__ == "__main__":
     main()
