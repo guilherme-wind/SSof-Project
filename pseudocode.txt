@@ -1,25 +1,54 @@
-global var tainted_var = [];
+global var sources = [<loaded from file>];
+global var sinks = [<loaded from file>];
+global var tainted_var = []<TaintedVar>;
 global var vulnerabilities = [];
 
 // A stack to save the info about in which block it is,
 // e.g.: in an If block inside a While block, etc...
 global var stack = new Stack();
 
+enum PresentIn {
+    SOURCES,
+    TAINED,
+    SINKS,
+    NONE
+}
+
+type TaintedVar {
+    // list of sources it got tainted from
+    from: [String],
+    // name of the variable
+    name: String,
+}
+
+
 func analyze(Dict: node) {
     switch node.type {
-        case contains 'Statement' => {
-            statement(node);
+        case contains 'Program' {
+            for (stm : node.body) {
+                statement(stm);
+            }
         }
-        case contains 'Declaration' => {
-            declaration(node);
-        }
-        case contains 'Expression' | 'Literal' | 'Identifier' => {
+        case contains 'Expression' | 'Literal' => {
             expression(node);
         }
         default {
             return;
         }
     }
+}
+
+func identifier(node) -> (type=PresentIn, name=name) {
+    if (node.name in sources)
+        return (PresentIn.SOURCES, node.name);
+
+    if (node.name in tained_var)
+        return (PresentIn.TAINED, node.name);
+
+    if (node.name in sinks)
+        return (PresentIn.SINKS, node.name);
+
+    return (PresentIn.NONE, node.name);
 }
 
 // Anything that can be from a single line of code
@@ -31,7 +60,7 @@ func analyze(Dict: node) {
 func statement(node) {
     switch node.type {
         case 'ExpressionStatement' {
-            expression(node);
+            expression(node.expression);
         }
         case 'BlockStatement' {
             for (statementnode : node.body) {
@@ -74,7 +103,7 @@ func declaration(node) {
 }
 
 // 
-func expression(node) {
+func expression(node) -> PresentIn {
     switch node.type {
         case 'ThisExpression' {
             return;
@@ -101,10 +130,7 @@ func expression(node) {
             expression(node.right);
         }
         case 'AssignmentExpression' {
-            if (node.left.type == 'Pattern') {
-                // TODO: kneee guard
-            }
-            expression(node.right);
+            assignment_expr(node);
         }
         case 'LogicalExpression' {
             expression(node.left);
@@ -123,5 +149,40 @@ func expression(node) {
         default {
             return;
         }
+    }
+}
+
+func assignment_expr(node) {
+    // result of the left hand side 
+    var result_left;
+
+    // result of the right hand side 
+    var result_right;
+
+    if (node.left.type contains 'Expression') {
+        result_left = expression(node.left);
+    } else {
+        result_left = identifier(node.left);
+    }
+    result_right = expression(node.right);
+
+    if (result_right.type == PresentIn.SOURCES || 
+        result_right.type == PresentIn.TAINTED) {
+        
+        // If the left hand side is a sink, then register the vulnerability
+        if (result_left.type == PresentIn.SINK)
+            // How to implement this part is still to be discussed
+            vulnerabilities.add();
+
+        // If the left hand side is a 'clean' variable, then it becomes tainted
+        if (result_left.type == PresentIn.NONE)
+            // How to implement this part is still to be discussed
+            tainted_var.add(result_left.name);
+        
+        // If the left hand side is already tainted, then update it's sources
+        if (result_left.type == PresentIn.TAINTED)
+            var already_tainted = tainted_var.get(result_left.name);
+            already_tainted.add_source(result_right);
+            tainted_var.add(already_tainted);
     }
 }
