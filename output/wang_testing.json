@@ -1,0 +1,108 @@
+{
+    "type": "Program",
+    "sourceType": "script",
+    "body": [
+        {
+            "type": "ExpressionStatement",
+            "expression": {
+                "type": "AssignmentExpression",
+                "operator": "=",
+                "left": {
+                    "type": "Identifier",
+                    "name": "a"
+                },
+                "right": {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": "b"
+                    },
+                    "arguments": []
+                }
+            }
+        },
+        {
+            "type": "ExpressionStatement",
+            "expression": {
+                "type": "AssignmentExpression",
+                "operator": "=",
+                "left": {
+                    "type": "Identifier",
+                    "name": "c"
+                },
+                "right": {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": "s"
+                    },
+                    "arguments": [
+                        {
+                            "type": "Literal",
+                            "value": "ola",
+                            "raw": "\"ola\""
+                        },
+                        {
+                            "type": "Identifier",
+                            "name": "a"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "ExpressionStatement",
+            "expression": {
+                "type": "AssignmentExpression",
+                "operator": "=",
+                "left": {
+                    "type": "Identifier",
+                    "name": "f"
+                },
+                "right": {
+                    "type": "CallExpression",
+                    "callee": {
+                        "type": "Identifier",
+                        "name": "e"
+                    },
+                    "arguments": [
+                        {
+                            "type": "BinaryExpression",
+                            "operator": "+",
+                            "left": {
+                                "type": "BinaryExpression",
+                                "operator": "+",
+                                "left": {
+                                    "type": "BinaryExpression",
+                                    "operator": "+",
+                                    "left": {
+                                        "type": "Identifier",
+                                        "name": "c"
+                                    },
+                                    "right": {
+                                        "type": "Literal",
+                                        "value": "oi",
+                                        "raw": "\"oi\""
+                                    }
+                                },
+                                "right": {
+                                    "type": "Identifier",
+                                    "name": "d"
+                                }
+                            },
+                            "right": {
+                                "type": "Literal",
+                                "value": "hi",
+                                "raw": "\"hi\""
+                            }
+                        },
+                        {
+                            "type": "Identifier",
+                            "name": "a"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
