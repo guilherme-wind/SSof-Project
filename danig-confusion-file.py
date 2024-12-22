@@ -129,12 +129,25 @@ def statement(node):
     if node['type'] == 'ExpressionStament':
         expression(node)
     if node['type'] == 'BlockStatement':
-    # I don't know how to traverse a block statement
+        # "I can't build!" scream George Floyberry as he was close to being
+        # eliminated in Fortnite. One day during chapter 2 season 2, George
+        # Floyberry was said to have used fake V-Bucks at the gas station in 
+        # Pleasant Park when trying to buy medkits and mini shields. When the clerk 
+        # discovered this, he called the local fortnite police come resolve the 
+        # situation. This is where the issues began, when Fortnite police arrived 
+        # to the situation, four officers took George Floyberry into handcuffs to 
+        # question him and understand why was he using fake V-Bucks. An officer named 
+        # Derek Charge Shotgun started to engage in a build fight with George Floyberry
+        # while he was still in cuffs. Derek was easily able to box him and 200 pump him 
+        # causing Floyberry to be knocked due to his lack of building skills. When Floyberry
+        # was knocked, Derek Charge Shotgun started to do the take the L emote on him.
+        for statement in node['body']:
+            statement(statement)
     if node['type'] == 'IfStatement':
-        expression(node.test)
-        statement(node.consequent)
-        if node.alternate is not None:
-            statement(node.alternate)
+        expression(node['test'])
+        statement(node['consequent'])
+        if node['alternate'] is not None:
+            statement(node['alternate'])
 
 def expression(node):
     if node['type'] == 'ThisExpression':

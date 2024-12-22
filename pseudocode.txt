@@ -29,9 +29,6 @@ func analyze(Dict: node) {
                 statement(stm);
             }
         }
-        case contains 'Expression' | 'Literal' => {
-            expression(node);
-        }
         default {
             return;
         }
@@ -105,32 +102,14 @@ func declaration(node) {
 // 
 func expression(node) -> PresentIn {
     switch node.type {
-        case 'ThisExpression' {
-            return;
-        }
-        case 'ArrayExpression' {
-            for (element : node.elements) {
-                if (element == null)
-                    continue;
-                expression(element);
-            }
-        }
-        case 'ObjectExpression' {
-            // Not as part of the project
-            return;
-        }
-        case 'FunctionExpression' {
-            return;
-        }
-        case 'UnaryExpression' || 'UpdateExpression' {
+        case 'UnaryExpression' {
             expression(node.argument);
         }
         case 'BinaryExpression ' {
-            expression(node.left);
-            expression(node.right);
+            return binary_expr(node);
         }
         case 'AssignmentExpression' {
-            assignment_expr(node);
+            return assignment_expr(node);
         }
         case 'LogicalExpression' {
             expression(node.left);
@@ -152,6 +131,11 @@ func expression(node) -> PresentIn {
     }
 }
 
+func binary_expr(node) {
+    var result_left = expression(node.left);
+    var result_right = expression(node.right);
+}
+
 func assignment_expr(node) {
     // result of the left hand side 
     var result_left;
@@ -170,9 +154,11 @@ func assignment_expr(node) {
         result_right.type == PresentIn.TAINTED) {
         
         // If the left hand side is a sink, then register the vulnerability
-        if (result_left.type == PresentIn.SINK)
+        if (result_left.type == PresentIn.SINK) {
             // How to implement this part is still to be discussed
             vulnerabilities.add();
+            return;
+        }
 
         // If the left hand side is a 'clean' variable, then it becomes tainted
         if (result_left.type == PresentIn.NONE)
