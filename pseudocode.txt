@@ -13,8 +13,11 @@ func analyze(Dict: node) {
         case contains 'Declaration' => {
             declaration(node);
         }
-        case contains 'Expression' => {
+        case contains 'Expression' | 'Literal' | 'Identifier' => {
             expression(node);
+        }
+        default {
+            return;
         }
     }
 }
@@ -35,19 +38,6 @@ func statement(node) {
                 statement(statementnode);
             }
         }
-        case 'DebuggerStatement' || 'EmptyStatement' || 'WithStatement' {
-            // Not as part of the project
-            return;
-        } 
-        case 'ReturnStatement' {
-            if node.argument != null {
-                statement(node.argument);
-            }
-            stack.pop();
-        }
-        case 'LabeledStatement' || 'BreakStatement' || 'ContinueStatement' {
-            // TODO: idk
-        }
         case 'IfStatement' {
             stack.push("If");
             expression(node.test);
@@ -56,36 +46,13 @@ func statement(node) {
                 statement(node.alternate);
             }
         }
-        case 'SwtichStatement' {
-            stack.push("Swich");
-            expresstion(node.discriminant);
-            for (case : node.cases) {
-                if (case.test != null) {
-                    expression(case.test);
-                    stack.pop();
-                    // TODO: sus
-                }
-                for (consequent : case.consequent) {
-                    state(consequent);
-                }
-            }
-        }
-        case 'ThrowStatement' || 'TryStatement' || 'CatchClause' {
-            // Not as part of the project
-            return;
-        }
         case 'WhileStatement' || 'DoWhileStatement ' {
             stack.push("While");
             expression(node.test);
             statement(node.body);
             stack.pop();
         }
-        case 'ForStatement' {
-            // Not as part of the project
-            return;
-        }
-        case 'ForInStatement' {
-            // Not as part of the project
+        default {
             return;
         }
     }
@@ -130,8 +97,31 @@ func expression(node) {
             expression(node.argument);
         }
         case 'BinaryExpression ' {
-            expression(argument);
+            expression(node.left);
+            expression(node.right);
         }
-        // TODO: complete the rest
+        case 'AssignmentExpression' {
+            if (node.left.type == 'Pattern') {
+                // TODO: kneee guard
+            }
+            expression(node.right);
+        }
+        case 'LogicalExpression' {
+            expression(node.left);
+            expression(node.right);
+        }
+        case 'MemberExpression' {
+            expression(node.object);
+            expression(node.property);
+        }
+        case 'CallExpression' {
+            expression(node.callee);
+            for (arg : node.arguments) {
+                expression(arg);
+            }
+        }
+        default {
+            return;
+        }
     }
 }
