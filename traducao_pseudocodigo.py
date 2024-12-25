@@ -1,5 +1,6 @@
 from enum import Enum
 import esprima
+from pygments.lexers.textfmts import TodotxtLexer
 
 from js_analyser import vulnerabilities
 
@@ -50,4 +51,42 @@ def statement(node):
         stack.append("If")
         expression(node['test'])
         statement(node['consequent'])
-        if(node['alternate'] )
+        if node['alternate'] is not None:
+            statement(node)
+    if node['type'] == 'WhileStatement' or 'DoWhileStatement':
+        stack.append("While")
+        expression(node.test)
+        stack.pop()
+    else:
+        return
+
+def declaration(node):
+    if node['type'] == 'FunctionDeclaration':
+        #TODO
+    if node['type'] == 'VariableDeclaration':
+        for declarator in node['declarations']:
+            expression(declarator['init'])
+
+def expression(node):
+    if node['type'] == 'UnaryExpression':
+        expression(node['argument'])
+    if node['type'] == 'BinaryExpression':
+        return binary_expr(node)
+    if node['type'] == 'AssignmentExpression':
+        return assignment_expr(node)
+    if node['type'] == 'LogicalExpression':
+        expression(node['left'])
+        expression(node['right'])
+    if node['type'] == 'MemberExpression':
+        expression(node['object'])
+        expression(node['property'])
+    if node['type'] == 'CallExpression':
+        expression(node['callee'])
+        for arg in node['argument']:
+            expression(arg)
+    else:
+        return
+
+def binary_expr(node):
+    result_left = expression(node['left'])
+    result_right = expression(node['right'])
