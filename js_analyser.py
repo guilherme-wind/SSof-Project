@@ -7,13 +7,13 @@ import argparse
 
 def make_folder_exist(folder):
     """
-    Creates the specified folder if it doesn't exist
+    Creates the specified folder if it doesn't exist.
     """
     os.makedirs(folder, exist_ok=True)
 
 def extract_filename_without_extension(file_path):
     """
-    Returns the filename without the path and extension
+    Returns the filename without the path and extension.
     """
     return os.path.splitext(os.path.basename(file_path))[0]
 
