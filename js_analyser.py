@@ -2,14 +2,7 @@ import sys
 import os
 import json
 import esprima
-import logging
 import argparse
-
-def make_folder_exist(folder):
-    """
-    Creates the specified folder if it doesn't exist.
-    """
-    os.makedirs(folder, exist_ok=True)
 
 def extract_filename_without_extension(file_path):
     """
@@ -22,8 +15,7 @@ def load_file(file_path) -> str:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
     except Exception as e:
-        logging.error(f"Failed to load file {file_path}: {e}")
-        sys.exit(1)
+        sys.exit(f"Error: Failed to load file {file_path} - {e}")
 
 def validate_patterns(patterns):
     """
@@ -40,8 +32,7 @@ def analyze(slice_code, patterns):
     try:
         parsed_ast = esprima.parseScript(slice_code, loc=True).toDict()
     except Exception as e:
-        logging.error(f"Error parsing JavaScript slice: {e}")
-        sys.exit(1)
+        sys.exit(f"Error: Parsing JavaScript slice failed - {e}")
 
     results = []
     for pattern in patterns:
@@ -146,7 +137,7 @@ def collect_sanitizations(node, sanitizers):
             sanitization_flow.extend(collect_sanitizations(arg, sanitizers))
     return sanitization_flow
 
-def extract(node):
+def extract(node):  
     if node["type"] == "Identifier":
         return node["name"]
     if node["type"] == "Literal":
