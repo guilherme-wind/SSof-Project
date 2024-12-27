@@ -36,9 +36,9 @@ def analyze(node):
 def identifier(node):
     if node['name'] in sources:
         return PresentIn.SOURCES, node['name']
-    if node['name'] in tainted_vars:
+    elif node['name'] in tainted_vars:
         return PresentIn.TAINTED, node['name']
-    if node['name'] in sinks:
+    elif node['name'] in sinks:
         return PresentIn.SINKS, node['name']
 
 def statement(node):
@@ -63,6 +63,7 @@ def statement(node):
 def declaration(node):
     if node['type'] == 'FunctionDeclaration':
         #TODO
+        return
     if node['type'] == 'VariableDeclaration':
         for declarator in node['declarations']:
             expression(declarator['init'])
