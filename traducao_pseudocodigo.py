@@ -90,3 +90,30 @@ def expression(node):
 def binary_expr(node):
     result_left = expression(node['left'])
     result_right = expression(node['right'])
+
+
+def assignment_expr(node):
+    #result of the left hand side
+    result_right = None
+    #result of the right hand side
+    result_left = None
+
+    if 'Expression' in node['left']['type'] :
+        result_left = expression(node['left'])
+    else:
+        result_left = identifier(node['left'])
+    
+    result_right = expression(node['right'])
+
+    if result_right['type'] == PresentIn.SOURCES or result_right['type'] == PresentIn.TAINTED:
+        if result_left['type'] == PresentIn.SINK:
+            #how to implment this part is yet to be discussed
+            #vulnerabilities.add()
+            return
+    if result_left['type'] == PresentIn.NONE:
+        tainted_var.add(result_left['name'])
+    if result_left['type'] == PresentIn.TAINTED:
+        already_tainted = tainted_var.get(result_left['name'])
+        already_tainted.add_source(result_right)
+        tainted_var.add(already_tainted)
+        
