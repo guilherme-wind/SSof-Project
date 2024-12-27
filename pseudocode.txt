@@ -16,7 +16,7 @@ enum PresentIn {
 
 type TaintedVar {
     // list of sources it got tainted from
-    from: [String],
+    sources: [(name: String, location: Int)],
     // name of the variable
     name: String,
 }
