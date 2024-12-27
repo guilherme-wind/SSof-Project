@@ -16,7 +16,7 @@ enum PresentIn {
 
 type TaintedVar {
     // list of sources it got tainted from
-    from: [String],
+    sources: [(name: String, location: Int)],
     // name of the variable
     name: String,
 }
@@ -33,19 +33,6 @@ func analyze(Dict: node) {
             return;
         }
     }
-}
-
-func identifier(node) -> (type=PresentIn, name=name) {
-    if (node.name in sources)
-        return (PresentIn.SOURCES, node.name);
-
-    if (node.name in tained_var)
-        return (PresentIn.TAINED, node.name);
-
-    if (node.name in sinks)
-        return (PresentIn.SINKS, node.name);
-
-    return (PresentIn.NONE, node.name);
 }
 
 // Anything that can be from a single line of code
@@ -125,10 +112,29 @@ func expression(node) -> PresentIn {
                 expression(arg);
             }
         }
+        case 'Identifier' {
+            return identifier(node);
+        }
+        case 'Literal' {
+            return;
+        }
         default {
             return;
         }
     }
+}
+
+func identifier(node) -> (type=PresentIn, name=name) {
+    if (node.name in sources)
+        return (PresentIn.SOURCES, node.name);
+
+    if (node.name in tained_var)
+        return (PresentIn.TAINED, node.name);
+
+    if (node.name in sinks)
+        return (PresentIn.SINKS, node.name);
+
+    return (PresentIn.NONE, node.name);
 }
 
 func binary_expr(node) {
