@@ -82,5 +82,19 @@
         "unsanitized_flows": "yes",
         "sanitized_flows": [],
         "implicit": "no"
+    },
+    {
+        "vulnerability": "B_6",
+        "source": [
+            "d",
+            7
+        ],
+        "sink": [
+            "e",
+            10
+        ],
+        "unsanitized_flows": "yes",
+        "sanitized_flows": [],
+        "implicit": "no"
     }
 ]

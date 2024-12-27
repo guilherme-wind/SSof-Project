@@ -2,6 +2,7 @@ import sys
 import os
 import json
 import esprima
+from typing import List, Any, Dict
 
 class FileHandler:
     @staticmethod
@@ -23,7 +24,6 @@ class FileHandler:
         final_path = os.path.join("output", output_path)
         with open(final_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, indent=4)
-
         print(f"Results saved to: {final_path}")
 
 class PatternValidator:
@@ -31,25 +31,25 @@ class PatternValidator:
     def validate_patterns(patterns):
         required_keys = {"sources", "sinks", "sanitizers", "vulnerability"}
         for index, pattern in enumerate(patterns, start=1):
-            missing_keys = required_keys - pattern.keys()
+            missing_keys = [key for key in required_keys if key not in pattern]
             if missing_keys:
                 raise ValueError(f"Pattern at index {index} is missing required keys: {missing_keys}")
 
 class ASTAnalyzer:
-    def __init__(self, patterns):
+    def __init__(self, patterns: List[Dict[str, Any]]) -> None:
         self.patterns = patterns
 
-    def analyze(self, slice_code):
+    def analyze(self, slice_code: str) -> List[Dict[str, Any]]:
         try:
             parsed_ast = esprima.parseScript(slice_code, loc=True).toDict()
         except Exception as e:
-            sys.exit(f"Error: Parsing JavaScript slice failed - {e}")
+            raise ValueError(f"Parsing JavaScript slice failed: {e}") from e
 
-        results = []
-        for pattern in self.patterns:
-            result = Vulnerability.find_vulnerabilities(parsed_ast, pattern)
-            if result:
-                results.extend(result)
+        results = [
+            vulnerability
+            for pattern in self.patterns
+            for vulnerability in Vulnerability.find_vulnerabilities(parsed_ast, pattern) or []
+        ]
         return results
 
 class Vulnerability:
@@ -59,7 +59,7 @@ class Vulnerability:
         sinks = pattern["sinks"]
         sanitizers = pattern["sanitizers"]
 
-        tainted_vars = {}
+        tainted_vars = {}  # Track tainted variables
         vulnerabilities = []
         vulnerability_counter = 1
 
@@ -69,10 +69,12 @@ class Vulnerability:
             if not isinstance(node, dict) or "type" not in node:
                 return
 
+            # Handle AssignmentExpression
             if node["type"] == "AssignmentExpression":
                 left = Utility.extract(node["left"])
                 right = node["right"]
 
+                # Taint propagation for variables
                 if right["type"] == "Identifier":
                     if right["name"] in tainted_vars:
                         tainted_vars[left] = tainted_vars[right["name"]]
@@ -85,6 +87,7 @@ class Vulnerability:
                 else:
                     tainted_vars.pop(left, None)
 
+                # Check for vulnerability when sink is found
                 if left in sinks and left in tainted_vars:
                     sanitized_flow = Sanitization.collect_sanitizations(right, sanitizers)
                     vulnerability = {
@@ -98,13 +101,32 @@ class Vulnerability:
                     vulnerabilities.append(vulnerability)
                     vulnerability_counter += 1
 
+            # Handle CallExpression (for nested calls like e(f(a)))
             if node["type"] == "CallExpression":
                 function_name = Utility.extract(node["callee"])
+                is_source = function_name in sources
+                is_sanitizer = function_name in sanitizers
+                arguments_tainted = []
+
+                for arg in node["arguments"]:
+                    arg_name = Utility.extract(arg)
+
+                    # Propagate taint to arguments
+                    if arg_name in tainted_vars:
+                        tainted_vars[arg_name] = tainted_vars[arg_name]  # Propagate existing taint
+                        arguments_tainted.append(arg_name)
+                    elif is_source:
+                        tainted_vars[arg_name] = {"source": function_name, "line": node["loc"]["start"]["line"]}
+                        arguments_tainted.append(arg_name)
+
+                    if is_sanitizer:
+                        Sanitization.collect_sanitizations(arg, sanitizers)
+
+                # Check sinks for each argument and capture vulnerabilities
                 if function_name in sinks:
-                    for arg in node["arguments"]:
-                        arg_name = Utility.extract(arg)
+                    for arg_name in arguments_tainted:
                         if arg_name in tainted_vars:
-                            sanitized_flow = Sanitization.collect_sanitizations(arg, sanitizers)
+                            sanitized_flow = Sanitization.collect_sanitizations(node, sanitizers)
                             vulnerability = {
                                 "vulnerability": f"{pattern['vulnerability']}_{vulnerability_counter}",
                                 "source": [tainted_vars[arg_name]["source"], tainted_vars[arg_name]["line"]],
@@ -116,6 +138,7 @@ class Vulnerability:
                             vulnerabilities.append(vulnerability)
                             vulnerability_counter += 1
 
+            # Handle control structures (If, While, For, Switch)
             if node["type"] in ["IfStatement", "WhileStatement", "ForStatement", "SwitchStatement"]:
                 if "consequent" in node:
                     traverse(node["consequent"], implicit_context=True)
@@ -124,6 +147,7 @@ class Vulnerability:
                 if "body" in node:
                     traverse(node["body"], implicit_context=True)
 
+            # Traverse child nodes
             for child in node.values():
                 if isinstance(child, list):
                     for subchild in child:
@@ -133,6 +157,7 @@ class Vulnerability:
 
         traverse(ast)
         return vulnerabilities
+
 
 class Sanitization:
     @staticmethod
