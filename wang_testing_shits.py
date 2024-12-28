@@ -20,7 +20,7 @@ def save(output_path, data):
 
 
 # file_path: str = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-file_path: str = "./wang_test.js"
+file_path: str = "./wang_test_example.js"
 
 try:
     with open(file_path, 'r', encoding='utf-8') as file:
