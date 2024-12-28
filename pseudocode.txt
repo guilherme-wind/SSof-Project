@@ -71,21 +71,6 @@ func statement(node) {
     }
 }
 
-// Anything that declares something, from variables to
-// functions
-func declaration(node) {
-    switch node.type {
-        case 'FunctionDeclaration' {
-            // TODO: idk
-        }
-        case 'VariableDeclaration' {
-            for (declararator : node.declarations) {
-                expression(declararator.init);
-            }
-        }
-    }
-}
-
 // 
 func expression(node) -> PresentIn {
     switch node.type {
@@ -107,10 +92,7 @@ func expression(node) -> PresentIn {
             expression(node.property);
         }
         case 'CallExpression' {
-            expression(node.callee);
-            for (arg : node.arguments) {
-                expression(arg);
-            }
+            call_expr(node);
         }
         case 'Identifier' {
             return identifier(node);
@@ -140,6 +122,13 @@ func identifier(node) -> (type=PresentIn, name=name) {
 func binary_expr(node) {
     var result_left = expression(node.left);
     var result_right = expression(node.right);
+}
+
+func call_expr(node) {
+    var callee = expression(node.callee);
+    for (arg : node.arguments) {
+        args expression(arg);
+    }
 }
 
 func assignment_expr(node) {
