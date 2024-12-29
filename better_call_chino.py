@@ -124,7 +124,7 @@ def assignment_expr(node):
                 # Register the vulnerability
                 if "tainted" in condition:
                     print("From tainted:")
-                    for source in tainted_source:
+                    for source in reversed(tainted_source):
                         print({
                             "vulnerability": patternvar,
                             "source": source,
@@ -133,7 +133,7 @@ def assignment_expr(node):
                         })
                 if "source" in condition:
                     print("From source:")
-                    for source in pattern_source:
+                    for source in reversed(pattern_source):
                         print({
                             "vulnerability": patternvar,
                             "source": (source, current_line),
@@ -191,8 +191,8 @@ def call_expr(node):
             if callee_state == "sink":
                 # Register the vulnerability
                 print("From tainted:")
-                # TODO: iterate in reverse order
-                for source in taintvar.get_sources():
+                # Reverse the order to get first added register first
+                for source in reversed(taintvar.get_sources()):
                     print({
                         "vulnerability": patterns.is_in_sink(callee_name),
                         "source": source,
@@ -207,8 +207,8 @@ def call_expr(node):
             if callee_state == "sink":
                 # Register the vulnerability
                 print("From source:")
-                # TODO: iterate in reverse order
-                for source in patternvar:
+                # Reverse the order to get first added register first
+                for source in reversed(patternvar):
                     print({
                         "vulnerability": patterns.is_in_sink(callee_name),
                         "source": source,
