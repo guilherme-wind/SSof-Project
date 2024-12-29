@@ -119,23 +119,27 @@ def assignment_expr(node):
         
         for left in result_left:
             # If the left side is a sink
-            if patterns.is_in_sink(left) != []:
-                if "source" in condition:
-                    print("From source:")
-                    print({
-                        "vulnerability": patterns.is_in_sink(left),
-                        "source": pattern_source,
-                        "sink": left,
-                        "line": current_line
-                    })
+            patternvar = patterns.is_in_sink(left)
+            if patternvar != []:
+                # Register the vulnerability
                 if "tainted" in condition:
                     print("From tainted:")
-                    print({
-                        "vulnerability": patterns.is_in_sink(left),
-                        "source": tainted_source,
-                        "sink": left,
-                        "line": current_line
-                    })
+                    for source in tainted_source:
+                        print({
+                            "vulnerability": patternvar,
+                            "source": source,
+                            "sink": left,
+                            "line": current_line
+                        })
+                if "source" in condition:
+                    print("From source:")
+                    for source in pattern_source:
+                        print({
+                            "vulnerability": patternvar,
+                            "source": (source, current_line),
+                            "sink": left,
+                            "line": current_line
+                        })
             # If the left side is a tainted variable
             left_tainted = tainted_vars.is_in_tainted_vars(left)
             if left_tainted != None:
@@ -180,35 +184,63 @@ def call_expr(node):
 
     # If there are arguments, check if they are tainted or contained in sources
     for arg in arguments:
-        # If the argument is in sources
-        if patterns.is_in_source(arg) != []:
-            # If the callee is a sink
-            if callee_state == "sink":
-                # Register the vulnerability
-                print({
-                    "vulnerability": patterns.is_in_sink(callee_name),
-                    "source": arg,
-                    "sink": callee_name,
-                    "line": current_line
-                })
-            # If the callee is a source
-            elif callee_state == "source":
-                
-                return 
 
         # If the argument is a tainted variable
         taintvar = tainted_vars.is_in_tainted_vars(arg)
         if taintvar != None:
             if callee_state == "sink":
-                print({
-                    "vulnerability": patterns.is_in_sink(callee_name),
-                    "source": taintvar.get_sources(),
-                    "sink": callee_name,
-                    "line": current_line
-                })
+                # Register the vulnerability
+                print("From tainted:")
+                # TODO: iterate in reverse order
+                for source in taintvar.get_sources():
+                    print({
+                        "vulnerability": patterns.is_in_sink(callee_name),
+                        "source": source,
+                        "sink": callee_name,
+                        "line": current_line
+                    })
+
+        # If the argument is in sources
+        patternvar = patterns.is_in_source(arg)
+        if patternvar != []:
+            # If the callee is a sink
+            if callee_state == "sink":
+                # Register the vulnerability
+                print("From source:")
+                # TODO: iterate in reverse order
+                for source in patternvar:
+                    print({
+                        "vulnerability": patterns.is_in_sink(callee_name),
+                        "source": source,
+                        "sink": callee_name,
+                        "line": current_line
+                    })
+            # If the callee is a source
+            elif callee_state == "source":
+                # TODO
+                return 
+
         
     
-    return [callee_name, arguments]
+    return [callee_name]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -258,10 +290,11 @@ class TaintedVar:
 # end class TaintedVar
 
 class Pattern:
-    def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str] = []):
+    def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
         self.name = name
         self.source = source
         self.sink = sink
+        self.sanitizer = sanitizer
 
     def __str__(self):
         return f"Vulnerability: {self.name}\nSource: {self.source}\nSink: {self.sink}\n"
@@ -280,6 +313,9 @@ class Pattern:
     
     def is_in_source(self, source: str) -> bool:
         return source in self.source
+    
+    def is_in_sanitizer(self, sanitizer: str) -> bool:
+        return sanitizer in self.sanitizer
 # end class Pattern
     
 class PatternList:
