@@ -174,7 +174,7 @@ def call_expr(node):
     if patterns.is_in_sink(callee_name) != []:
         callee_state = "sink"
     if patterns.is_in_sanitizer(callee_name) != []:
-        return
+        callee_state = "sanitizer"
     if patterns.is_in_source(callee_name) != []:
         callee_state = "source"
 
@@ -193,7 +193,7 @@ def call_expr(node):
                 })
             # If the callee is a source
             elif callee_state == "source":
-
+                
                 return 
 
         # If the argument is a tainted variable
@@ -350,6 +350,10 @@ class TaintedVarList:
         return None
     
     def add_tainted_var(self, name: str, source: Tuple[str, int]):
+        """
+        Add a tainted variable to the list. If the variable is already
+        in the list, add the source to the variable.
+        """
         taintvar = self.is_in_tainted_vars(name)
         if taintvar == None:
             tainted_var = TaintedVar(name)
