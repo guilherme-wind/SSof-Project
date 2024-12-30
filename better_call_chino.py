@@ -287,6 +287,101 @@ def load_patterns(patterns: List[Dict[str, Any]]) -> None:
         
 
 
+class InitializedVar:
+    """
+    A class that represents a variable that has been initialized.
+    It contains the name of the variable and the line of code where
+    it was initialized.
+    It also contains a list of subvariables of the initialized variable.
+    E.g.:
+        `var a = [];`
+        `a[b] = 1;`
+        `b` is a subvariable of `a` and both are initialized.
+
+    Each subvariable can also have subvariables. So the class is recursive.
+    """
+    def __init__(self, name: str, line: int):
+        """
+        Parameters:
+        name (str): the name of the variable
+        line (int): the line of code where the variable was FIRSTLY initialized
+        """
+        self.name = name
+        self.line = line
+        self.subvar: List[InitializedVar] = []
+    
+    def get_name(self) -> str:
+        return self.name
+    
+    def get_line(self) -> int:
+        return self.line
+    
+    def add_subvar(self, subvar: 'InitializedVar'):
+        self.subvar.append(subvar)
+    
+    def add_subvar(self, name: str, line: int) -> 'InitializedVar':
+        subvar = InitializedVar(name, line)
+        self.subvar.append(subvar)
+        return subvar
+
+    def get_subvar(self) -> List['InitializedVar']:
+        return self.subvar
+    
+    def is_in_subvar(self, name: str) -> 'InitializedVar' | None:
+        """
+        1 level search for a subvariable with the given name.
+        """
+        for subvar in self.subvar:
+            if subvar.get_name() == name:
+                return subvar
+        return None
+    
+    def is_in_subvar(self, name: List[str]) -> 'InitializedVar' | None:
+        """
+        Check if the variable is in the subvariables of the initialized variable.
+        Returns the subvariable if it is present in the subvariables.
+        E.g.: if the variable a has b and b has c, when calling a.is_in_var(["b", "c"]),
+        it will return the subvariable c.
+        """
+        for subvar in self.subvar:
+            if subvar.get_name() == name[0]:
+                if len(name) == 1:
+                    return subvar
+                else:
+                    return subvar.is_in_subvar(name[1:])
+        return None
+# end class InitializedVar
+
+class InitializedVarList:
+    def __init__(self):
+        self.initialized_vars: List[InitializedVar] = []
+    
+    def is_in_initialized_vars(self, var: List[str]) -> InitializedVar | None:
+        """
+        Check if the variable is in the initialized variables list.
+        Returns the variable if it is present in the list.
+        """
+        for initialized_var in self.initialized_vars:
+            if initialized_var.get_name() == var[0]:
+                if len(var) == 1:
+                    return initialized_var
+                else:
+                    return initialized_var.is_in_subvar(var[1:])
+        return None
+    
+    def add_initialized_var(self, name: str, line: int) -> 'InitializedVar':
+        """
+        Add a new initialized variable to the list and return it.
+        If the variable is already in the list, will return the existing
+        variable.
+        """
+        initialized_var = self.is_in_initialized_vars(name)
+        if initialized_var == None:
+            initialized_var = InitializedVar(name, line)
+            self.initialized_vars.append(initialized_var)
+        return initialized_var
+# end class InitializedVarList
+
 class TaintedVar:
     def __init__(self, name: str):
         self.name = name
@@ -472,6 +567,10 @@ class SanitizedVarList:
             sanitized_var.add_sanitizer(sanitizer)
     
     def add_sanitized_var(self, var: SanitizedVar):
+        """
+        Add a sanitized variable to the list. Recommended
+        to use the add_sanitized_var(self, name, sanitizer)
+        """
         self.sanitized_vars.append(var)
     
     def get_sanitized_var(self, name: str) -> SanitizedVar:
@@ -479,7 +578,7 @@ class SanitizedVarList:
             if var.get_name() == name:
                 return var
         return None
-
+# end class SanitizedVarList
 
 class FileHandler:
     @staticmethod
@@ -505,6 +604,7 @@ class FileHandler:
 # end class FileHandler
 
 patterns: PatternList
+initialized_vars: InitializedVarList = InitializedVarList()
 tainted_vars: TaintedVarList = TaintedVarList()
 sanitized_vars: SanitizedVarList = SanitizedVarList()
 vulnerabilities: List[str] = []
