@@ -9,7 +9,7 @@
         "slice_name": "1b-basic-flow",
         "expected_output_file": "./examples/1-basic-flow/1b-basic-flow.output.json",
         "generated_output_file": "./output/1b-basic-flow.output.json",
-        "match": false
+        "match": true
     },
     {
         "slice_name": "2-expr-binary-ops",

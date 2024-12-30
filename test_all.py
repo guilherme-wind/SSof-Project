@@ -36,7 +36,7 @@ def main():
                 if slice_name == pattern_name:
                     output_file = f"{output_directory}/{slice_name}.output.json"
                     print(f"Testing {js_file} with {pattern_file}")
-                    result = subprocess.run(['python', 'js_analyser.py', js_file, pattern_file], capture_output=True, text=True)
+                    result = subprocess.run(['python', 'wind.py', js_file, pattern_file], capture_output=True, text=True, timeout=10)
                     print(result.stdout)
                     print(result.stderr)
                     break  # Break the loop once the match is found
