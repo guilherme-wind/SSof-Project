@@ -73,7 +73,7 @@ def expression(node: List[Dict[str, Any]]) -> Any:
         return node["name"]
     
     elif node["type"] == 'Literal':
-        return node["value"]
+        return 'Literal'
     
     else:
         return
@@ -112,6 +112,12 @@ def assignment_expr(node):
             tainted_source = taintvar.get_sources()
             proceed = True
             condition += "tainted"
+        # If the right side is an uninitialized variable
+
+        # If the right side is a literal
+        if right == 'Literal':
+            proceed = True
+            condition += "initialization"
         
         # If right hand side is not a source or tainted variable
         if not proceed:
