@@ -3,7 +3,7 @@ import os
 import json
 import esprima
 from enum import Enum
-from typing import List, Any, Dict, Tuple
+from typing import List, Any, Dict, Optional, Tuple
 
 class PresentIn(Enum):
     SOURCE = 1
@@ -333,7 +333,7 @@ class InitializedVar:
     def get_subvar(self) -> List['InitializedVar']:
         return self.subvar
     
-    def is_in_subvar(self, name: str) -> 'InitializedVar' | None:
+    def is_in_subvar(self, name: str) -> Optional['InitializedVar']:
         """
         1 level search for a subvariable with the given name.
         """
@@ -342,7 +342,7 @@ class InitializedVar:
                 return subvar
         return None
     
-    def is_in_subvar(self, name: List[str]) -> 'InitializedVar' | None:
+    def is_in_subvar(self, name: List[str]) -> Optional['InitializedVar']:
         """
         Check if the variable is in the subvariables of the initialized variable.
         Returns the subvariable if it is present in the subvariables.
