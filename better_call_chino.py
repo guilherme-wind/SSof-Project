@@ -301,8 +301,9 @@ def member_expr(node, taint: list) -> List[Variable]:
 
 def call_expr(node, taint: list) -> List[Variable]:
     """
-    Evaluates a call expression and returns a list of variables.
-    E.g.: foo(bar, baz) -> [bar, baz]
+    Evaluates a call expression and returns a single variable
+    that combines the characteristics of the callee and the
+    arguments.
     """
     callee_name: List[Variable] = expression(node['callee'], [])
     arguments: List[Variable] = []
@@ -310,6 +311,9 @@ def call_expr(node, taint: list) -> List[Variable]:
         list_merge(arguments, expression(arg, []))
 
     current_line = node['loc']['start']['line']
+    # Declare a variable that will collect all the taints
+    # from the arguments and the callee
+    return_variable: Variable = Variable("", current_line)
 
     for name in callee_name:
         # If the function is a sink
@@ -319,6 +323,7 @@ def call_expr(node, taint: list) -> List[Variable]:
             for arg in arguments:
                 # If the argument is tainted
                 for taint in arg.get_taint():
+                    return_variable.add_taint(taint.source, taint.line, taint.get_pattern())
                     # If the pattern match the sink
                     if taint.get_pattern() in sink_patterns:
                         print({
@@ -330,6 +335,7 @@ def call_expr(node, taint: list) -> List[Variable]:
                 # If the argument is source
                 source_patterns = patternlist.is_in_source(arg.get_name())
                 for source in source_patterns:
+                    return_variable.add_taint(arg.get_name(), current_line, source)
                     if source in sink_patterns:
                         print({
                             "vulnerability": source.get_name(),
@@ -340,13 +346,24 @@ def call_expr(node, taint: list) -> List[Variable]:
         # If the function is a sanitizer
         sanitizer_patterns = patternlist.is_in_sanitizer(name.get_name())
         if sanitizer_patterns != []:
+            # TODO: return variable
+            return_variable = Variable(name.get_name(), current_line)
             # Iterate over the arguments
             for arg in arguments:
                 for taint in arg.get_taint():
                     if taint.get_pattern() in sanitizer_patterns:
                         taint.add_sanitizer((name, current_line))
+        
+        # If the function is a source
+        source_patterns = patternlist.is_in_source(name.get_name())
+        if source_patterns != []:
+            # Add the taints of the arguments
+            for arg in arguments:
+                for taint in arg.get_taint():
+                    return_variable.add_taint(taint.source, taint.line, taint.get_pattern())
+            
     
-    return list_merge(callee_name, arguments)
+    return [return_variable]
 
 
 def assignment_expr(node, taint: list) -> List[Variable]:
