@@ -10,13 +10,6 @@ class InitializedVar:
     A class that represents a variable that has been initialized.
     It contains the name of the variable and the line of code where
     it was initialized.
-    It also contains a list of subvariables of the initialized variable.
-    E.g.:
-        `var a = [];`
-        `a[b] = 1;`
-        `b` is a subvariable of `a` and both are initialized.
-
-    Each subvariable can also have subvariables. So the class is recursive.
     """
     def __init__(self, name: str, line: int):
         """
@@ -26,48 +19,12 @@ class InitializedVar:
         """
         self.name = name
         self.line = line
-        self.subvar: List[InitializedVar] = []
     
     def get_name(self) -> str:
         return self.name
     
     def get_line(self) -> int:
         return self.line
-    
-    def add_subvar(self, subvar: 'InitializedVar'):
-        self.subvar.append(subvar)
-    
-    def add_subvar(self, name: str, line: int) -> 'InitializedVar':
-        subvar = InitializedVar(name, line)
-        self.subvar.append(subvar)
-        return subvar
-
-    def get_subvar(self) -> List['InitializedVar']:
-        return self.subvar
-    
-    def is_in_subvar(self, name: str) -> Optional['InitializedVar']:
-        """
-        1 level search for a subvariable with the given name.
-        """
-        for subvar in self.subvar:
-            if subvar.get_name() == name:
-                return subvar
-        return None
-    
-    def is_in_subvar(self, name: List[str]) -> Optional['InitializedVar']:
-        """
-        Check if the variable is in the subvariables of the initialized variable.
-        Returns the subvariable if it is present in the subvariables.
-        E.g.: if the variable a has b and b has c, when calling a.is_in_var(["b", "c"]),
-        it will return the subvariable c.
-        """
-        for subvar in self.subvar:
-            if subvar.get_name() == name[0]:
-                if len(name) == 1:
-                    return subvar
-                else:
-                    return subvar.is_in_subvar(name[1:])
-        return None
 # end class InitializedVar
 
 class InitializedVarList:
@@ -83,8 +40,6 @@ class InitializedVarList:
             if initialized_var.get_name() == var[0]:
                 if len(var) == 1:
                     return initialized_var
-                else:
-                    return initialized_var.is_in_subvar(var[1:])
         return None
     
     def add_initialized_var(self, name: str, line: int) -> 'InitializedVar':
@@ -372,7 +327,7 @@ def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
         return call_expr(node, tainted)
     
     elif node["type"] == 'Identifier':
-        return node["name"]
+        return identifier(node, tainted)
     
     elif node["type"] == 'Literal':
         return 'Literal'
@@ -380,9 +335,9 @@ def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
     else:
         return
     
-def identifier(node, tainted: list):
-    return node["name"]
-
+def identifier(node, tainted: list) -> List[TaintedVar]:
+    taintedvar = tainted_vars.is_in_tainted_vars(node['name'])
+    return [taintedvar] if taintedvar != None else []
 
 
 def assignment_expr(node, taint: list):
