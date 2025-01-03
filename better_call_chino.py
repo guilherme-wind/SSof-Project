@@ -381,7 +381,7 @@ def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
         return
     
 def identifier(node, tainted: list):
-    return node["name"]
+    return [tainted_vars.is_in_tainted_vars(node['name'])]
 
 
 
