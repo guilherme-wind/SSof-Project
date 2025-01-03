@@ -5,123 +5,92 @@ import esprima
 from enum import Enum
 from typing import List, Any, Dict, Optional, Tuple
 
-from traducao_pseudocodigo import sources
 
+class Taint:
+    def __init__(self, source: str, line: int, pattern: str, implicit: bool = False):
+        self.source = source
+        self.line = line
+        self.pattern = pattern
+        self.implicit = implicit
+        self.sanitizer: List[Tuple[str, int]] = []
 
-class InitializedVar:
+    def add_sanitizer(self, sanitizer: Tuple[str, int]):
+        """
+        Add a sanitizer to the taint. The sanitizer is a tuple
+        (name of sanitizer in pattern, line of code).
+        """
+        if sanitizer not in self.sanitizer:
+            self.sanitizer.append(sanitizer)
+    
+    def copy(self) -> 'Taint':
+        """
+        Returns a deep copy of the Taint object.
+        """
+        copy = Taint(self.source, self.line, self.pattern, self.implicit)
+        for sanitizer in self.sanitizer:
+            copy.add_sanitizer(sanitizer)
+        return copy
+# end class Taint
+
+class Variable: 
     """
-    A class that represents a variable that has been initialized.
-    It contains the name of the variable and the line of code where
-    it was initialized.
+    Represents an initialized variable in the piece of code, i.e. a variable
+    within the scope.
     """
     def __init__(self, name: str, line: int):
-        """
-        Parameters:
-        name (str): the name of the variable
-        line (int): the line of code where the variable was FIRSTLY initialized
-        """
         self.name = name
-        self.line = line
+        self.initline = line
+        self.taint: List[Taint] = []
     
     def get_name(self) -> str:
         return self.name
     
-    def get_line(self) -> int:
-        return self.line
-# end class InitializedVar
+    def add_taint(self, source: str, line: int, pattern: str, implicit: bool = False):
+        self.taint.append(Taint(source, line, pattern, implicit))
 
-class InitializedVarList:
-    def __init__(self):
-        self.initialized_vars: List[InitializedVar] = []
-    
-    def is_in_initialized_vars(self, var: List[str]) -> InitializedVar | None:
-        """
-        Check if the variable is in the initialized variables list.
-        Returns the variable if it is present in the list.
-        """
-        for initialized_var in self.initialized_vars:
-            if initialized_var.get_name() == var[0]:
-                if len(var) == 1:
-                    return initialized_var
-        return None
-    
-    def add_initialized_var(self, name: str, line: int) -> 'InitializedVar':
-        """
-        Add a new initialized variable to the list and return it.
-        If the variable is already in the list, will return the existing
-        variable.
-        """
-        initialized_var = self.is_in_initialized_vars(name)
-        if initialized_var == None:
-            initialized_var = InitializedVar(name, line)
-            self.initialized_vars.append(initialized_var)
-        return initialized_var
-# end class InitializedVarList
+    def get_taint(self) -> List[Taint]:
+        return self.taint
 
-class TaintedVar:
-    def __init__(self, name: str):
-        self.name = name
-        self.source = []
-
-    def __str__(self):
-        return f"Variable: {self.name} - Source: {self.source}"
+    def add_sanitizer(self, sanitizer: Tuple[str, int]):
+        """
+        Add a sanitizer to the variable. The sanitizer is a tuple
+        (name of sanitizer in pattern, line of code).
+        """
+        for taint in self.taint:
+            taint.add_sanitizer(sanitizer)
     
-    def get_name(self) -> str:
-        return self.name
-
-    def add_source(self, source: Tuple[str, int]):
-        """
-        Add a source to the tainted variable. The source is a tuple
-        (name of source in pattern, line of code).
-        """
-        if source not in self.source:
-            self.source.append(source)
+    def is_tainted(self) -> bool:
+        return len(self.taint) > 0
     
-    def get_sources(self) -> List[Tuple[str, int]]:
-        return self.source
-    
-    def copy(self) -> 'TaintedVar':
+    def copy(self) -> 'Variable':
         """
-        Returns a copy of the TaintedVar object.
+        Returns a deep copy of the Variable object.
         """
-        copy = TaintedVar(self.name)
-        for source in self.source:
-            copy.add_source(source)
+        copy = Variable(self.name, self.initline)
+        for taint in self.taint:
+            copy.add_taint(taint.copy())
         return copy
-# end class TaintedVar
+# end class Variable
 
-class TaintedVarList:
+class VariableList:
     def __init__(self):
-        self.tainted_vars = []
+        self.variables: List[Variable] = []
+    
+    def add_variable(self, variable: Variable):
+        self.variables.append(variable)
+    
+    def is_in_variables(self, varname: str) -> Optional[Variable]:
+        for variable in self.variables:
+            if variable.name == varname:
+                return variable
+        return None
 
-    def is_in_tainted_vars(self, var: str) -> TaintedVar | None:
-        for tainted_var in self.tainted_vars:
-            if tainted_var.get_name() == var:
-                return tainted_var
+    def is_in_tainted_vars(self, varname: str) -> Optional[Variable]:
+        for variable in self.variables:
+            if variable.name == varname and variable.is_tainted():
+                return variable
         return None
-    
-    def add_tainted_var(self, name: str, source: Tuple[str, int]):
-        """
-        Add a tainted variable to the list. If the variable is already
-        in the list, add the source to the variable.
-        """
-        taintvar = self.is_in_tainted_vars(name)
-        if taintvar == None:
-            tainted_var = TaintedVar(name)
-            tainted_var.add_source(source)
-            self.tainted_vars.append(tainted_var)
-        else:
-            tainted_var.add_source(source)
-    
-    def add_tainted_var(self, var: TaintedVar):
-        self.tainted_vars.append(var)
-    
-    def get_tainted_var(self, name: str) -> TaintedVar:
-        for var in self.tainted_vars:
-            if var.get_name() == name:
-                return var
-        return None
-# end class TaintedVarList
+# end class VariableList
 
 class Pattern:
     def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
@@ -208,72 +177,16 @@ class PatternList:
         return None
 # end class PatternList
 
-class SanitizedVar:
-    def __init__(self, name: str):
-        self.name = name
-        self.sanitizer = []
-    
-    def get_name(self) -> str:
-        return self.name
-    
-    def add_sanitizer(self, sanitizer: Tuple[str, int]):
-        """
-        Add a sanitizer to the variable. The sanitizer is a tuple
-        (name of sanitizer in pattern, line of code).
-        """
-        if sanitizer not in self.sanitizer:
-            self.sanitizer.append(sanitizer)
-    
-    def get_sanitizers(self) -> List[Tuple[str, int]]:
-        return self.sanitizer
-# end class SanitizedVar
 
-class SanitizedVarList:
-    def __init__(self):
-        self.sanitized_vars = []
-    
-    def is_in_sanitized_vars(self, var: str) -> SanitizedVar | None:
-        for sanitized_var in self.sanitized_vars:
-            if sanitized_var.get_name() == var:
-                return sanitized_var
-        return None
-    
-    def add_sanitized_var(self, name: str, sanitizer: Tuple[str, int]):
-        """
-        Add a sanitized variable to the list. If the variable is already
-        in the list, add the sanitizer to the variable.
-        """
-        sanitized_var = self.is_in_sanitized_vars(name)
-        if sanitized_var == None:
-            sanitized_var = SanitizedVar(name)
-            sanitized_var.add_sanitizer(sanitizer)
-            self.sanitized_vars.append(sanitized_var)
-        else:
-            sanitized_var.add_sanitizer(sanitizer)
-    
-    def add_sanitized_var(self, var: SanitizedVar):
-        """
-        Add a sanitized variable to the list. Recommended
-        to use the add_sanitized_var(self, name, sanitizer)
-        """
-        self.sanitized_vars.append(var)
-    
-    def get_sanitized_var(self, name: str) -> SanitizedVar:
-        for var in self.sanitized_vars:
-            if var.get_name() == name:
-                return var
-        return None
-# end class SanitizedVarList
-
-class PresentIn(Enum):
-    SOURCE = 1
-    SINK = 2
-    TAINTED = 3
-    NONE = 4
+def list_merge(list1: list, list2: list) -> list:
+    for element in list2:
+        list1.append(element)
+    return list1
 
 
-# Implementation of the pseudocode
-def analyze(node: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+
+def analyze(node):
     if not isinstance(node, dict) or "type" not in node:
         return
     
@@ -286,7 +199,7 @@ def analyze(node: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def statement(node: List[Dict[str, Any]]):
     if node["type"] == 'ExpressionStatement':
-        expression(node["expression"])
+        expression(node["expression"], [])
 
     elif node["type"] == 'BlockStatement':
         for child in node["body"]:
@@ -294,14 +207,14 @@ def statement(node: List[Dict[str, Any]]):
 
     elif node["type"] == 'IfStatement':
         # TODO
-        expression(node["test"])
+        expression(node["test"], [])
         statement(node["consequent"])
         if node["alternate"] is not None:
             statement(node["alternate"])
 
     elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
         # TODO
-        expression(node["test"])
+        expression(node["test"], [])
         statement(node["body"])
         return
 
@@ -312,19 +225,19 @@ def statement(node: List[Dict[str, Any]]):
 
 def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
     if node["type"] == 'UnaryExpression':
-        expression(node["argument"])
+        expression(node["argument"], tainted)
 
     elif node["type"] == 'BinaryExpression':
-        return binary_expr(node)
+        return binary_expr(node, tainted)
     
     elif node["type"] == 'AssignmentExpression':
-        return assignment_expr(node)
+        return assignment_expr(node, tainted)
     
     elif node["type"] == 'LogicalExpression':
         return
     
     elif node["type"] == 'MemberExpression':
-        return member_expr(node)
+        return member_expr(node, tainted)
     
     elif node["type"] == 'CallExpression':
         return call_expr(node, tainted)
@@ -333,14 +246,47 @@ def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
         return identifier(node, tainted)
     
     elif node["type"] == 'Literal':
-        return 'Literal'
+        return []
     
     else:
         return
     
-def identifier(node, tainted: list) -> List[TaintedVar]:
-    taintedvar = tainted_vars.is_in_tainted_vars(node['name'])
-    return [taintedvar] if taintedvar != None else []
+def identifier(node, tainted: list) -> Variable:
+    """
+    Returns a variable object from the node.
+    If the variable is not initialized, it will 
+    have all the vulnerabilities.
+    """
+    var = variables.is_in_variables(node['name'])
+    # If the variable has already been initialized
+    if var != None:
+        return var
+    # Otherwise, it is uninitialized and have all vulnerabilities
+    else:
+        current_line = node['loc']['start']['line']
+        var = Variable(node['name'], current_line)
+        for pattern in patterns.patterns:
+            var.add_taint(node['name'], current_line, pattern.name)
+        return var
+
+def member_expr(node, taint: list) -> List[Variable]:
+    """
+    """
+    list: List[Variable] = []
+    list_merge(list, expression(node['object'], []))
+    list_merge(list, expression(node['property'], []))
+    return list
+
+def call_expr(node, taint: list) -> Any:
+    callee_name = expression(node['callee'], [])
+    arguments = []
+    for arg in node['arguments']:
+        arguments.append(expression(arg, []))
+
+    for name in callee_name:
+        for arg in arguments:
+            if patterns.is_in_sink(name) != []:
+                return
 
 
 def assignment_expr(node, taint: list):
@@ -431,114 +377,12 @@ def assignment_expr(node, taint: list):
     # TODO: define return type
 
 
-def call_expr(node, taint: list) -> Any:
-    callee_name = expression(node['callee'])
-    arguments = []
-    for arg in node['arguments']:
-        arguments.append(expression(arg))
-
-    for name in callee_name:
-        for arg in arguments:
-            if patterns.is_in_sink(name) != []:
-                return
 
 
 
 
 
 
-
-
-
-
-
-
-
-
-    # # If there are no arguments, simply let the upper level handle it
-    # if arguments == []:
-    #     return callee_name
-    
-    # current_line = node['loc']['start']['line']
-    # callee_state = ""
-    
-    # if patterns.is_in_sink(callee_name) != []:
-    #     callee_state = "sink"
-    # if patterns.is_in_sanitizer(callee_name) != []:
-    #     callee_state = "sanitizer"
-    # if patterns.is_in_source(callee_name) != []:
-    #     callee_state = "source"
-
-    # # If there are arguments, check if they are tainted or contained in sources
-    # for arg in arguments:
-
-    #     # If the argument is a tainted variable
-    #     taintvar = tainted_vars.is_in_tainted_vars(arg)
-    #     if taintvar != None:
-    #         # If the callee is a sink
-    #         if callee_state == "sink":
-    #             # Register the vulnerability
-    #             print("From tainted:")
-    #             # Reverse the order to get first added register first
-    #             for source in reversed(taintvar.get_sources()):
-    #                 print({
-    #                     "vulnerability": patterns.is_in_sink(callee_name),
-    #                     "source": source,
-    #                     "sink": callee_name,
-    #                     "line": current_line
-    #                 })
-    #         # If the callee is a source
-    #         elif callee_state == "source":
-    #             # TODO
-    #             return
-    #         # If the callee is a sanitizer
-    #         elif callee_state == "sanitizer":
-    #             sanitezed_var = sanitized_vars.is_in_sanitized_vars(arg)
-    #             if sanitezed_var != None:
-    #                 sanitezed_var.add_sanitizer((callee_name, current_line))
-    #             else:
-    #                 sanitezed_var = SanitizedVar(arg)
-    #                 sanitezed_var.add_sanitizer((callee_name, current_line))
-    #                 sanitized_vars.add_sanitized_var(sanitezed_var)
-
-    #     # If the argument is in sources
-    #     patternvar = patterns.is_in_source(arg)
-    #     if patternvar != []:
-    #         # If the callee is a sink
-    #         if callee_state == "sink":
-    #             # Register the vulnerability
-    #             print("From source:")
-    #             # Reverse the order to get first added register first
-    #             for source in reversed(patternvar):
-    #                 print({
-    #                     "vulnerability": patterns.is_in_sink(callee_name),
-    #                     "source": source,
-    #                     "sink": callee_name,
-    #                     "line": current_line
-    #                 })
-    #         # If the callee is a source
-    #         elif callee_state == "source":
-    #             # TODO
-    #             return 
-    # return [callee_name]
-
-
-
-
-def member_expr(node, taint: list) -> List[str]:
-    list = []
-    list.append(expression(node['object']))
-    list.append(expression(node['property']))
-    #if the goal is to return a list with tainted variables
-    for element in list:
-        #if at least one of the variables in the list is tainted, then all of them should be tainted right?
-        if patterns.is_in_source(element) != []:
-            return list
-        elif tainted_vars.is_in_tainted_vars(element) != []:
-            return list
-        else:
-            return [] # means this whole recursive member expression did not touch any
-    return list
 
 
 def binary_expr(node) -> List[str]:
@@ -615,9 +459,7 @@ class FileHandler:
 # end class FileHandler
 
 patterns: PatternList
-initialized_vars: InitializedVarList = InitializedVarList()
-tainted_vars: TaintedVarList = TaintedVarList()
-sanitized_vars: SanitizedVarList = SanitizedVarList()
+variables: VariableList = VariableList()
 vulnerabilities: List[str] = []
 
 def main():
