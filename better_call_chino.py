@@ -6,14 +6,102 @@ from enum import Enum
 from typing import List, Any, Dict, Optional, Tuple
 
 
+class Pattern:
+    def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
+        self.name = name
+        self.source = source
+        self.sink = sink
+        self.sanitizer = sanitizer
+
+    def __str__(self):
+        return f"Vulnerability: {self.name}\nSource: {self.source}\nSink: {self.sink}\n"
+    
+    def get_name(self) -> str:
+        return self.name
+    
+    def get_source(self) -> list:
+        return self.source
+    
+    def get_sink(self) -> list:
+        return self.sink
+    
+    def is_in_sink(self, sink: str) -> bool:
+        return sink in self.sink
+    
+    def is_in_source(self, source: str) -> bool:
+        return source in self.source
+    
+    def is_in_sanitizer(self, sanitizer: str) -> bool:
+        return sanitizer in self.sanitizer
+# end class Pattern
+    
+class PatternList:
+    def __init__(self, patterns: List[str]):
+        self.patterns: List[Pattern] = []
+        for pattern in patterns:
+            self.patterns.append(
+                Pattern(
+                    pattern["vulnerability"], 
+                    pattern["sources"], 
+                    pattern["sinks"],
+                    pattern["sanitizers"]
+                    )
+                )
+    
+    def is_in_source(self, var: str) -> List[Pattern]:
+        """
+        Check if the variable is in the source of the patterns.
+        Returns a list of pattern names where the variable is 
+        present in the source.
+        """
+        results: List[Pattern] = []
+        for pattern in self.patterns:
+            if pattern.is_in_source(var):
+                results.append(pattern)
+        return results
+    
+    def is_in_sink(self, var: str) -> List[Pattern]:
+        """
+        Check if the variable is in the sink of the patterns.
+        Returns a list of patterns where the variable is 
+        present in the sink.
+        """
+        results: List[Pattern] = []
+        for pattern in self.patterns:
+            if pattern.is_in_sink(var):
+                results.append(pattern)
+        return results
+    
+    def is_in_sanitizer(self, var: str) -> List[Pattern]:
+        """
+        Check if the variable is in the sanitizer of the patterns.
+        Returns a list of pattern names where the variable is 
+        present in the sanitizer.
+        """
+        results: List[Pattern] = []
+        for pattern in self.patterns:
+            if pattern.is_in_sanitizer(var):
+                results.append(pattern)
+        return results
+    
+    def get_pattern(self, name: str) -> Pattern:
+        for pattern in self.patterns:
+            if pattern.get_name() == name:
+                return pattern
+        return None
+# end class PatternList
+
 class Taint:
-    def __init__(self, source: str, line: int, pattern: str, implicit: bool = False):
+    def __init__(self, source: str, line: int, pattern: Pattern, implicit: bool = False):
         self.source = source
         self.line = line
         self.pattern = pattern
         self.implicit = implicit
         self.sanitizer: List[Tuple[str, int]] = []
 
+    def get_pattern(self) -> Pattern:
+        return self.pattern
+    
     def add_sanitizer(self, sanitizer: Tuple[str, int]):
         """
         Add a sanitizer to the taint. The sanitizer is a tuple
@@ -45,7 +133,7 @@ class Variable:
     def get_name(self) -> str:
         return self.name
     
-    def add_taint(self, source: str, line: int, pattern: str, implicit: bool = False):
+    def add_taint(self, source: str, line: int, pattern: Pattern, implicit: bool = False):
         self.taint.append(Taint(source, line, pattern, implicit))
 
     def get_taint(self) -> List[Taint]:
@@ -92,93 +180,14 @@ class VariableList:
         return None
 # end class VariableList
 
-class Pattern:
-    def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
-        self.name = name
-        self.source = source
-        self.sink = sink
-        self.sanitizer = sanitizer
 
-    def __str__(self):
-        return f"Vulnerability: {self.name}\nSource: {self.source}\nSink: {self.sink}\n"
-    
-    def get_name(self) -> str:
-        return self.name
-    
-    def get_source(self) -> list:
-        return self.source
-    
-    def get_sink(self) -> list:
-        return self.sink
-    
-    def is_in_sink(self, sink: str) -> bool:
-        return sink in self.sink
-    
-    def is_in_source(self, source: str) -> bool:
-        return source in self.source
-    
-    def is_in_sanitizer(self, sanitizer: str) -> bool:
-        return sanitizer in self.sanitizer
-# end class Pattern
-    
-class PatternList:
-    def __init__(self, patterns: List[str]):
-        self.patterns = []
-        for pattern in patterns:
-            self.patterns.append(
-                Pattern(
-                    pattern["vulnerability"], 
-                    pattern["sources"], 
-                    pattern["sinks"],
-                    pattern["sanitizers"]
-                    )
-                )
-    
-    def is_in_source(self, var: str) -> List[str]:
-        """
-        Check if the variable is in the source of the patterns.
-        Returns a list of pattern names where the variable is 
-        present in the source.
-        """
-        results = []
-        for pattern in self.patterns:
-            if pattern.is_in_source(var):
-                results.append(pattern.get_name())
-        return results
-    
-    def is_in_sink(self, var: str) -> List[str]:
-        """
-        Check if the variable is in the sink of the patterns.
-        Returns a list of pattern names where the variable is 
-        present in the sink.
-        """
-        results = []
-        for pattern in self.patterns:
-            if pattern.is_in_sink(var):
-                results.append(pattern.get_name())
-        return results
-    
-    def is_in_sanitizer(self, var: str) -> List[str]:
-        """
-        Check if the variable is in the sanitizer of the patterns.
-        Returns a list of pattern names where the variable is 
-        present in the sanitizer.
-        """
-        results = []
-        for pattern in self.patterns:
-            if pattern.is_in_sanitizer(var):
-                results.append(pattern.get_name())
-        return results
-    
-    def get_pattern(self, name: str) -> Pattern:
-        for pattern in self.patterns:
-            if pattern.get_name() == name:
-                return pattern
-        return None
-# end class PatternList
 
 
 def list_merge(list1: list, list2: list) -> list:
+    """
+    Merges two lists into one, putting the elements of list2
+    at the end of list1.
+    """
     for element in list2:
         list1.append(element)
     return list1
@@ -223,7 +232,7 @@ def statement(node: List[Dict[str, Any]]):
 
 
 
-def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
+def expression(node: List[Dict[str, Any]], tainted: list) -> List[Variable]:
     if node["type"] == 'UnaryExpression':
         expression(node["argument"], tainted)
 
@@ -251,129 +260,177 @@ def expression(node: List[Dict[str, Any]], tainted: list) -> Any:
     else:
         return
     
-def identifier(node, tainted: list) -> Variable:
+def identifier(node, tainted: list) -> List[Variable]:
     """
     Returns a variable object from the node.
     If the variable is not initialized, it will 
     have all the vulnerabilities.
     """
-    var = variables.is_in_variables(node['name'])
-    # If the variable has already been initialized
+    # If the identifier is an initialized variable
+    var = variablelist.is_in_variables(node['name'])
     if var != None:
-        return var
-    # Otherwise, it is uninitialized and have all vulnerabilities
-    else:
-        current_line = node['loc']['start']['line']
-        var = Variable(node['name'], current_line)
-        for pattern in patterns.patterns:
-            var.add_taint(node['name'], current_line, pattern.name)
-        return var
+        return [var]
+    # If the identifier is a source
+    var = patternlist.is_in_source(node['name'])
+    if var != None:
+        return [Variable(node['name'], 0)]
+    # If the identifier is a sink
+    var = patternlist.is_in_sink(node['name'])
+    if var != None:
+        return [Variable(node['name'], 0)]
+    # If the identifier is a sanitizer
+    var = patternlist.is_in_sanitizer(node['name'])
+    if var != None:
+        return [Variable(node['name'], 0)]
+    # If the identifier is not initialized
+    current_line = node['loc']['start']['line']
+    var = Variable(node['name'], current_line)
+    for pattern in patternlist.patterns:
+        var.add_taint(node['name'], current_line, pattern)
+    return [var]
 
 def member_expr(node, taint: list) -> List[Variable]:
     """
+    Converts a member expression to a list of variables.
+    E.g.: a.b.c -> [a, b, c]
     """
     list: List[Variable] = []
     list_merge(list, expression(node['object'], []))
-    list_merge(list, expression(node['property'], []))
+    list.append(list, expression(node['property'], []))
     return list
 
-def call_expr(node, taint: list) -> Any:
-    callee_name = expression(node['callee'], [])
-    arguments = []
+def call_expr(node, taint: list) -> List[Variable]:
+    """
+    Evaluates a call expression and returns a list of variables.
+    E.g.: foo(bar, baz) -> [bar, baz]
+    """
+    callee_name: List[Variable] = expression(node['callee'], [])
+    arguments: List[Variable] = []
     for arg in node['arguments']:
-        arguments.append(expression(arg, []))
+        list_merge(arguments, expression(arg, []))
+
+    current_line = node['loc']['start']['line']
 
     for name in callee_name:
-        for arg in arguments:
-            if patterns.is_in_sink(name) != []:
-                return
+        # If the function is a sink
+        sink_patterns = patternlist.is_in_sink(name.get_name())
+        if sink_patterns != []:
+            # Iterate over the arguments
+            for arg in arguments:
+                # If the argument is tainted
+                for taint in arg.get_taint():
+                    # If the pattern match the sink
+                    if taint.get_pattern() in sink_patterns:
+                        print({
+                            "vulnerability": taint.get_pattern().get_name(),
+                            "source": [taint.source, taint.line],
+                            "sink": [name.get_name(), current_line],
+                            "sanitized": taint.sanitizer
+                        })
+                # If the argument is source
+                source_patterns = patternlist.is_in_source(arg.get_name())
+                for source in source_patterns:
+                    if source in sink_patterns:
+                        print({
+                            "vulnerability": source.get_name(),
+                            "source": [arg.get_name(), current_line],
+                            "sink": [name.get_name(), current_line]
+                        })
+
+        # If the function is a sanitizer
+        sanitizer_patterns = patternlist.is_in_sanitizer(name.get_name())
+        if sanitizer_patterns != []:
+            # Iterate over the arguments
+            for arg in arguments:
+                for taint in arg.get_taint():
+                    if taint.get_pattern() in sanitizer_patterns:
+                        taint.add_sanitizer((name, current_line))
+    
+    return list_merge(callee_name, arguments)
 
 
-def assignment_expr(node, taint: list):
+def assignment_expr(node, taint: list) -> List[Variable]:
     # list of variables on the left side
-    result_left = expression(node['left'])
+    result_left = expression(node['left'], [])
 
     # list of variables on the right side
-    result_right = expression(node['right'])
-
-    if result_left is None or result_right is None:
-        return
+    result_right = expression(node['right'], [])
     
-    for right in result_right:
-        current_line = node['loc']['start']['line']
-        pattern_source: str = None
+#     for right in result_right:
+#         current_line = node['loc']['start']['line']
+#         pattern_source: str = None
 
-        tainted_source: List[Tuple[str, int]] = None
+#         tainted_source: List[Tuple[str, int]] = None
 
-        # If worth to check the left side
-        proceed: bool = False
+#         # If worth to check the left side
+#         proceed: bool = False
 
-        condition = ""
+#         condition = ""
 
-        # If the right side is a source
-        if patterns.is_in_source(right) != []:
-            pattern_source = right
-            proceed = True
-            condition += "source "
-        # If the right side is a tainted variable
-        taintvar = tainted_vars.is_in_tainted_vars(right)
-        if taintvar != None:
-            tainted_source = taintvar.get_sources()
-            proceed = True
-            condition += "tainted"
-        # If the right side is an uninitialized variable
+#         # If the right side is a source
+#         if patternlist.is_in_source(right) != []:
+#             pattern_source = right
+#             proceed = True
+#             condition += "source "
+#         # If the right side is a tainted variable
+#         taintvar = tainted_vars.is_in_tainted_vars(right)
+#         if taintvar != None:
+#             tainted_source = taintvar.get_sources()
+#             proceed = True
+#             condition += "tainted"
+#         # If the right side is an uninitialized variable
 
-        # If the right side is a literal
-        if right == 'Literal':
-            proceed = True
-            condition += "initialization"
+#         # If the right side is a literal
+#         if right == 'Literal':
+#             proceed = True
+#             condition += "initialization"
         
-        # If right hand side is not a source or tainted variable
-        if not proceed:
-            continue
+#         # If right hand side is not a source or tainted variable
+#         if not proceed:
+#             continue
         
-        for left in result_left:
-            # If the left side is a sink
-            patternvar = patterns.is_in_sink(left)
-            if patternvar != []:
-                # Register the vulnerability
-                if "tainted" in condition:
-                    print("From tainted:")
-                    for source in reversed(tainted_source):
-                        print({
-                            "vulnerability": patternvar,
-                            "source": source,
-                            "sink": left,
-                            "line": current_line
-                        })
-                if "source" in condition:
-                    print("From source:")
-                    for source in reversed(pattern_source):
-                        print({
-                            "vulnerability": patternvar,
-                            "source": (source, current_line),
-                            "sink": left,
-                            "line": current_line
-                        })
-            # If the left side is a tainted variable
-            left_tainted = tainted_vars.is_in_tainted_vars(left)
-            if left_tainted != None:
-                # Update the source of the tainted variable
-                if "source" in condition:
-                    left_tainted.add_source((pattern_source, current_line))
-                if "tainted" in condition:
-                    for source in tainted_source:
-                        left_tainted.add_source(source)
-            # If left hand side is a 'clean' variable
-            else:
-                # It becomes a tainted variable
-                tainted_var = TaintedVar(left)
-                if "source" in condition:
-                    tainted_var.add_source((pattern_source, current_line))
-                if "tainted" in condition:
-                    for source in tainted_source:
-                        tainted_var.add_source(source)
-                tainted_vars.add_tainted_var(tainted_var)
+#         for left in result_left:
+#             # If the left side is a sink
+#             patternvar = patternlist.is_in_sink(left)
+#             if patternvar != []:
+#                 # Register the vulnerability
+#                 if "tainted" in condition:
+#                     print("From tainted:")
+#                     for source in reversed(tainted_source):
+#                         print({
+#                             "vulnerability": patternvar,
+#                             "source": source,
+#                             "sink": left,
+#                             "line": current_line
+#                         })
+#                 if "source" in condition:
+#                     print("From source:")
+#                     for source in reversed(pattern_source):
+#                         print({
+#                             "vulnerability": patternvar,
+#                             "source": (source, current_line),
+#                             "sink": left,
+#                             "line": current_line
+#                         })
+#             # If the left side is a tainted variable
+#             left_tainted = tainted_vars.is_in_tainted_vars(left)
+#             if left_tainted != None:
+#                 # Update the source of the tainted variable
+#                 if "source" in condition:
+#                     left_tainted.add_source((pattern_source, current_line))
+#                 if "tainted" in condition:
+#                     for source in tainted_source:
+#                         left_tainted.add_source(source)
+#             # If left hand side is a 'clean' variable
+#             else:
+#                 # It becomes a tainted variable
+#                 tainted_var = TaintedVar(left)
+#                 if "source" in condition:
+#                     tainted_var.add_source((pattern_source, current_line))
+#                 if "tainted" in condition:
+#                     for source in tainted_source:
+#                         tainted_var.add_source(source)
+#                 tainted_vars.add_tainted_var(tainted_var)
     # TODO: define return type
 
 
@@ -385,15 +442,15 @@ def assignment_expr(node, taint: list):
 
 
 
-def binary_expr(node) -> List[str]:
-    list = []
-    right_side = node['right']
-    left_side = node['left']
+# def binary_expr(node) -> List[str]:
+#     list = []
+#     right_side = node['right']
+#     left_side = node['left']
 
-    #It's not considering that it can be tainted sources, but I don't know how you want to do that
-    if tainted_vars.is_in_tainted_vars(right_side):
-        list.append(expression(right_side))
-    return list
+#     #It's not considering that it can be tainted sources, but I don't know how you want to do that
+#     if tainted_vars.is_in_tainted_vars(right_side):
+#         list.append(expression(right_side))
+#     return list
 
 
 
@@ -458,13 +515,13 @@ class FileHandler:
         print(f"Results saved to: {final_path}")
 # end class FileHandler
 
-patterns: PatternList
-variables: VariableList = VariableList()
+patternlist: PatternList
+variablelist: VariableList = VariableList()
 vulnerabilities: List[str] = []
 
 def main():
-    slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
-    patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
+    slice_path = "./Examples/3-expr/3b-expr-func-calls.js"
+    patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
@@ -472,8 +529,8 @@ def main():
     raw_patterns: str = json.loads(FileHandler.load_file(patterns_path))
 
     parsed_ast = esprima.parseScript(slice_code, loc=True).toDict()
-    global patterns 
-    patterns = PatternList(raw_patterns)
+    global patternlist 
+    patternlist = PatternList(raw_patterns)
 
     analyze(parsed_ast)
 
