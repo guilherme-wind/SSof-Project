@@ -5,6 +5,9 @@ import esprima
 from enum import Enum
 from typing import List, Any, Dict, Optional, Tuple
 
+from traducao_pseudocodigo import sources
+
+
 class InitializedVar:
     """
     A class that represents a variable that has been initialized.
@@ -571,11 +574,27 @@ def member_expr(node, taint: list) -> List[str]:
     list = []
     list.append(expression(node['object']))
     list.append(expression(node['property']))
+    #if the goal is to return a list with tainted variables
+    for element in list:
+        #if at least one of the variables in the list is tainted, then all of them should be tainted right?
+        if patterns.is_in_source(element) != []:
+            return list
+        elif tainted_vars.is_in_tainted_vars(element) != []:
+            return list
+        else:
+            return [] # means this whole recursive member expression did not touch any
     return list
 
 
-def binary_expr(node) -> str:
-    return
+def binary_expr(node) -> List[str]:
+    list = []
+    right_side = node['right']
+    left_side = node['left']
+
+    #It's not considering that it can be tainted sources, but I don't know how you want to do that
+    if tainted_vars.is_in_tainted_vars(right_side):
+        list.append(expression(right_side))
+    return list
 
 
 
