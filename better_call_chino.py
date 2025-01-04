@@ -3,7 +3,7 @@ import os
 import json
 import esprima
 from enum import Enum
-from typing import List, Any, Dict, Optional, Tuple
+from typing import List, Any, Dict, Optional, Tuple, overload
 
 
 class Pattern:
@@ -133,19 +133,25 @@ class Variable:
     def get_name(self) -> str:
         return self.name
     
-    def add_taint(self, source: str, line: int, pattern: Pattern, implicit: bool = False):
-        self.taint.append(Taint(source, line, pattern, implicit))
-
-    def get_taint(self) -> List[Taint]:
-        return self.taint
-
-    def add_sanitizer(self, sanitizer: Tuple[str, int]):
+    def add_new_taint(self, source: str, line: int, pattern: Pattern, implicit: bool = False):
         """
-        Add a sanitizer to the variable. The sanitizer is a tuple
-        (name of sanitizer in pattern, line of code).
+        Add a new taint to the variable. Doesn't add the taint if it's already
+        present in the variable.
         """
+        if self.get_taint(source, line, pattern) is None:
+            self.taint.append(Taint(source, line, pattern, implicit))
+    
+    def add_taint(self, taint: Taint):
+        self.taint.append(taint)
+    
+    def get_taint(self, source: str, line: int, pattern: Pattern) -> Optional[Taint]:
         for taint in self.taint:
-            taint.add_sanitizer(sanitizer)
+            if taint.source == source and taint.line == line and taint.pattern == pattern:
+                return taint
+        return None
+
+    def get_all_taints(self) -> List[Taint]:
+        return self.taint
     
     def is_tainted(self) -> bool:
         return len(self.taint) > 0
@@ -286,7 +292,7 @@ def identifier(node, tainted: list) -> List[Variable]:
     current_line = node['loc']['start']['line']
     var = Variable(node['name'], current_line)
     for pattern in patternlist.patterns:
-        var.add_taint(node['name'], current_line, pattern)
+        var.add_new_taint(node['name'], current_line, pattern)
     return [var]
 
 def member_expr(node, taint: list) -> List[Variable]:
@@ -296,7 +302,7 @@ def member_expr(node, taint: list) -> List[Variable]:
     """
     list: List[Variable] = []
     list_merge(list, expression(node['object'], []))
-    list.append(list, expression(node['property'], []))
+    list_merge(list, expression(node['property'], []))
     return list
 
 def call_expr(node, taint: list) -> List[Variable]:
@@ -322,8 +328,8 @@ def call_expr(node, taint: list) -> List[Variable]:
             # Iterate over the arguments
             for arg in arguments:
                 # If the argument is tainted
-                for taint in arg.get_taint():
-                    return_variable.add_taint(taint.source, taint.line, taint.get_pattern())
+                for taint in arg.get_all_taints():
+                    return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
                     # If the pattern match the sink
                     if taint.get_pattern() in sink_patterns:
                         print({
@@ -335,7 +341,7 @@ def call_expr(node, taint: list) -> List[Variable]:
                 # If the argument is source
                 source_patterns = patternlist.is_in_source(arg.get_name())
                 for source in source_patterns:
-                    return_variable.add_taint(arg.get_name(), current_line, source)
+                    return_variable.add_new_taint(arg.get_name(), current_line, source)
                     if source in sink_patterns:
                         print({
                             "vulnerability": source.get_name(),
@@ -346,21 +352,28 @@ def call_expr(node, taint: list) -> List[Variable]:
         # If the function is a sanitizer
         sanitizer_patterns = patternlist.is_in_sanitizer(name.get_name())
         if sanitizer_patterns != []:
-            # TODO: return variable
-            return_variable = Variable(name.get_name(), current_line)
             # Iterate over the arguments
             for arg in arguments:
-                for taint in arg.get_taint():
+                for taint in arg.get_all_taints():
+                    # If the taint is already in the return variable
+                    add_taint = return_variable.get_taint(taint.source, taint.line, taint.get_pattern())
+                    if add_taint is None:
+                        add_taint = Taint(taint.source, taint.line, taint.get_pattern())
+                        return_variable.add_taint(add_taint)
+                    # If the taint pattern is in the sanitizer patterns
                     if taint.get_pattern() in sanitizer_patterns:
-                        taint.add_sanitizer((name, current_line))
+                        add_taint.add_sanitizer((name, current_line))
         
         # If the function is a source
         source_patterns = patternlist.is_in_source(name.get_name())
         if source_patterns != []:
             # Add the taints of the arguments
             for arg in arguments:
-                for taint in arg.get_taint():
-                    return_variable.add_taint(taint.source, taint.line, taint.get_pattern())
+                for taint in arg.get_all_taints():
+                    return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
+            # Add the source pattern
+            for source in source_patterns:
+                return_variable.add_new_taint(name.get_name(), current_line, source)
             
     
     return [return_variable]
@@ -459,7 +472,8 @@ def assignment_expr(node, taint: list) -> List[Variable]:
 
 
 
-# def binary_expr(node) -> List[str]:
+def binary_expr(node) -> List[str]:
+    pass
 #     list = []
 #     right_side = node['right']
 #     left_side = node['left']
@@ -550,11 +564,6 @@ def main():
     patternlist = PatternList(raw_patterns)
 
     analyze(parsed_ast)
-
-    # print(f"\033[34mDetected Vulnerabilities:\033[0m\n{json.dumps(results, indent=4)}")
-
-    # output_file = f"{FileHandler.extract_filename_without_extension(slice_path)}.output.json"
-    # FileHandler.save(output_file, results)
 
 if __name__ == "__main__":
     main()
