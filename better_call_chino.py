@@ -144,6 +144,14 @@ class Variable:
     def add_taint(self, taint: Taint):
         self.taint.append(taint)
     
+    def merge_taints(self, taints: List[Taint]):
+        """
+        Merge a list of taints with the taints of the variable.
+        """
+        for taint in taints:
+            if self.get_taint(taint.source, taint.line, taint.get_pattern()) is None:
+                self.taint.append(taint)
+    
     def get_taint(self, source: str, line: int, pattern: Pattern) -> Optional[Taint]:
         for taint in self.taint:
             if taint.source == source and taint.line == line and taint.pattern == pattern:
@@ -386,88 +394,65 @@ def assignment_expr(node, taint: list) -> List[Variable]:
     of the left and right side.
     """
     # list of variables on the left side
-    result_left = expression(node['left'], [])
+    result_left: List[Variable] = expression(node['left'], [])
 
     # list of variables on the right side
-    result_right = expression(node['right'], [])
+    result_right: List[Variable] = expression(node['right'], [])
 
     current_line = node['loc']['start']['line']
+    # return_variable: Variable = Variable("", current_line)
+
+    # last element of the result_left list
+    left = result_left[-1]
     
-    for left in result_left:
+    # If the left side is a sink
+    sink_patterns = patternlist.is_in_sink(left.get_name())
+    if sink_patterns != []:
+        # Iterate over the right side
+        for right in result_right:
+            # If the right side is tainted
+            for taint in right.get_all_taints():
+                # return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
+                if taint.get_pattern() in sink_patterns:
+                    print({
+                        "vulnerability": taint.get_pattern().get_name(),
+                        "source": [taint.source, taint.line],
+                        "sink": [left.get_name(), current_line],
+                        "sanitized": taint.sanitizer
+                    })
+            # If the right side is a source
+            source_patterns = patternlist.is_in_source(right.get_name())
+            for source in source_patterns:
+                # return_variable.add_new_taint(right.get_name(), current_line, source)
+                if source in sink_patterns:
+                    print({
+                        "vulnerability": source.get_name(),
+                        "source": [right.get_name(), current_line],
+                        "sink": [left.get_name(), current_line]
+                    })
+    
+    # If the left side is an initialized variable
+    if variablelist.is_in_variables(left.get_name()) != None:
+        
+        # Merge with the taints of the right side
+        for right in result_right:
+            left.merge_taints(right.get_all_taints())
+        # If the right side is a source, create new taints
+        for right in result_right:
+            left.merge_taints([
+                Taint(right.get_name(), current_line, pattern) 
+                for pattern in patternlist.is_in_source(right.get_name())
+            ])
+
+    # If the left side is an uninitialized variable
+    else:
+
+        new_var = Variable(left.get_name(), current_line)
+        
         pass
-
-#         tainted_source: List[Tuple[str, int]] = None
-
-#         # If worth to check the left side
-#         proceed: bool = False
-
-#         condition = ""
-
-#         # If the right side is a source
-#         if patternlist.is_in_source(right) != []:
-#             pattern_source = right
-#             proceed = True
-#             condition += "source "
-#         # If the right side is a tainted variable
-#         taintvar = tainted_vars.is_in_tainted_vars(right)
-#         if taintvar != None:
-#             tainted_source = taintvar.get_sources()
-#             proceed = True
-#             condition += "tainted"
-#         # If the right side is an uninitialized variable
-
-#         # If the right side is a literal
-#         if right == 'Literal':
-#             proceed = True
-#             condition += "initialization"
         
-#         # If right hand side is not a source or tainted variable
-#         if not proceed:
-#             continue
         
-#         for left in result_left:
-#             # If the left side is a sink
-#             patternvar = patternlist.is_in_sink(left)
-#             if patternvar != []:
-#                 # Register the vulnerability
-#                 if "tainted" in condition:
-#                     print("From tainted:")
-#                     for source in reversed(tainted_source):
-#                         print({
-#                             "vulnerability": patternvar,
-#                             "source": source,
-#                             "sink": left,
-#                             "line": current_line
-#                         })
-#                 if "source" in condition:
-#                     print("From source:")
-#                     for source in reversed(pattern_source):
-#                         print({
-#                             "vulnerability": patternvar,
-#                             "source": (source, current_line),
-#                             "sink": left,
-#                             "line": current_line
-#                         })
-#             # If the left side is a tainted variable
-#             left_tainted = tainted_vars.is_in_tainted_vars(left)
-#             if left_tainted != None:
-#                 # Update the source of the tainted variable
-#                 if "source" in condition:
-#                     left_tainted.add_source((pattern_source, current_line))
-#                 if "tainted" in condition:
-#                     for source in tainted_source:
-#                         left_tainted.add_source(source)
-#             # If left hand side is a 'clean' variable
-#             else:
-#                 # It becomes a tainted variable
-#                 tainted_var = TaintedVar(left)
-#                 if "source" in condition:
-#                     tainted_var.add_source((pattern_source, current_line))
-#                 if "tainted" in condition:
-#                     for source in tainted_source:
-#                         tainted_var.add_source(source)
-#                 tainted_vars.add_tainted_var(tainted_var)
-    # TODO: define return type
+
 
 
 
