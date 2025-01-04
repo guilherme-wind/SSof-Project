@@ -373,7 +373,14 @@ def call_expr(node, taint: list) -> List[Variable]:
                     if taint.get_pattern() in sanitizer_patterns:
                         add_taint.add_sanitizer((name, current_line))
                 # If the argument is a source
-                # TODO
+                source_patterns = patternlist.is_in_source(arg.get_name())
+                for source in source_patterns:
+                    add_taint = return_variable.get_taint(arg.get_name(), current_line, source)
+                    if add_taint is None:
+                        add_taint = Taint(arg.get_name(), current_line, source)
+                        return_variable.add_taint(add_taint)
+                    if source in sanitizer_patterns:
+                        add_taint.add_sanitizer((name, current_line))
         
         # If the function is a source
         source_patterns = patternlist.is_in_source(name.get_name())
@@ -571,8 +578,8 @@ def main():
     # patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
+    patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
