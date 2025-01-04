@@ -286,15 +286,15 @@ def identifier(node, tainted: list) -> List[Variable]:
         return [var]
     # If the identifier is a source
     var = patternlist.is_in_source(node['name'])
-    if var != None:
+    if var != []:
         return [Variable(node['name'], 0)]
     # If the identifier is a sink
     var = patternlist.is_in_sink(node['name'])
-    if var != None:
+    if var != []:
         return [Variable(node['name'], 0)]
     # If the identifier is a sanitizer
     var = patternlist.is_in_sanitizer(node['name'])
-    if var != None:
+    if var != []:
         return [Variable(node['name'], 0)]
     # If the identifier is not initialized
     current_line = node['loc']['start']['line']
@@ -400,13 +400,12 @@ def assignment_expr(node, taint: list) -> List[Variable]:
     result_right: List[Variable] = expression(node['right'], [])
 
     current_line = node['loc']['start']['line']
-    # return_variable: Variable = Variable("", current_line)
 
     # last element of the result_left list
-    left = result_left[-1]
+    result_left = result_left[-1]
     
     # If the left side is a sink
-    sink_patterns = patternlist.is_in_sink(left.get_name())
+    sink_patterns = patternlist.is_in_sink(result_left.get_name())
     if sink_patterns != []:
         # Iterate over the right side
         for right in result_right:
@@ -417,7 +416,7 @@ def assignment_expr(node, taint: list) -> List[Variable]:
                     print({
                         "vulnerability": taint.get_pattern().get_name(),
                         "source": [taint.source, taint.line],
-                        "sink": [left.get_name(), current_line],
+                        "sink": [result_left.get_name(), current_line],
                         "sanitized": taint.sanitizer
                     })
             # If the right side is a source
@@ -428,30 +427,43 @@ def assignment_expr(node, taint: list) -> List[Variable]:
                     print({
                         "vulnerability": source.get_name(),
                         "source": [right.get_name(), current_line],
-                        "sink": [left.get_name(), current_line]
+                        "sink": [result_left.get_name(), current_line]
                     })
     
     # If the left side is an initialized variable
-    if variablelist.is_in_variables(left.get_name()) != None:
+    # TODO: optimize this part
+    if variablelist.is_in_variables(result_left.get_name()) != None:
         
         # Merge with the taints of the right side
         for right in result_right:
-            left.merge_taints(right.get_all_taints())
+            result_left.merge_taints(right.get_all_taints())
         # If the right side is a source, create new taints
         for right in result_right:
-            left.merge_taints([
+            result_left.merge_taints([
                 Taint(right.get_name(), current_line, pattern) 
                 for pattern in patternlist.is_in_source(right.get_name())
             ])
 
     # If the left side is an uninitialized variable
+    # TODO: optimize this part
     else:
 
-        new_var = Variable(left.get_name(), current_line)
+        new_var = Variable(result_left.get_name(), current_line)
+
+        # Merge with the taints of the right side
+        for right in result_right:
+            new_var.merge_taints(right.get_all_taints())
+
+        # If the right side is a source, create new taints
+        for right in result_right:
+            new_var.merge_taints([
+                Taint(right.get_name(), current_line, pattern) 
+                for pattern in patternlist.is_in_source(right.get_name())
+            ])
         
-        pass
+        variablelist.add_variable(new_var)
         
-        
+    return []
 
 
 
@@ -542,8 +554,10 @@ variablelist: VariableList = VariableList()
 vulnerabilities: List[str] = []
 
 def main():
-    slice_path = "./Examples/3-expr/3b-expr-func-calls.js"
-    patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
+    # slice_path = "./Examples/3-expr/3b-expr-func-calls.js"
+    # patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
+    slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
+    patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
