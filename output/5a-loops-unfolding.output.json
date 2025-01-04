@@ -2,20 +2,6 @@
     {
         "vulnerability": "A_1",
         "source": [
-            "f",
-            4
-        ],
-        "sink": [
-            "h",
-            7
-        ],
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
-        "implicit": "no"
-    },
-    {
-        "vulnerability": "A_2",
-        "source": [
             "b",
             1
         ],
