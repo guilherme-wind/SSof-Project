@@ -285,17 +285,17 @@ def identifier(node, tainted: list) -> List[Variable]:
     if var != None:
         return [var]
     # If the identifier is a source
-    var = patternlist.is_in_source(node['name'])
-    if var != []:
-        return [Variable(node['name'], 0)]
+    # var = patternlist.is_in_source(node['name'])
+    # if var != []:
+    #     return [Variable(node['name'], 0)]
     # If the identifier is a sink
-    var = patternlist.is_in_sink(node['name'])
-    if var != []:
-        return [Variable(node['name'], 0)]
+    # var = patternlist.is_in_sink(node['name'])
+    # if var != []:
+    #     return [Variable(node['name'], 0)]
     # If the identifier is a sanitizer
-    var = patternlist.is_in_sanitizer(node['name'])
-    if var != []:
-        return [Variable(node['name'], 0)]
+    # var = patternlist.is_in_sanitizer(node['name'])
+    # if var != []:
+    #     return [Variable(node['name'], 0)]
     # If the identifier is not initialized
     current_line = node['loc']['start']['line']
     var = Variable(node['name'], current_line)
@@ -362,6 +362,7 @@ def call_expr(node, taint: list) -> List[Variable]:
         if sanitizer_patterns != []:
             # Iterate over the arguments
             for arg in arguments:
+                # If the argument is tainted
                 for taint in arg.get_all_taints():
                     # If the taint is already in the return variable
                     add_taint = return_variable.get_taint(taint.source, taint.line, taint.get_pattern())
@@ -371,6 +372,8 @@ def call_expr(node, taint: list) -> List[Variable]:
                     # If the taint pattern is in the sanitizer patterns
                     if taint.get_pattern() in sanitizer_patterns:
                         add_taint.add_sanitizer((name, current_line))
+                # If the argument is a source
+                # TODO
         
         # If the function is a source
         source_patterns = patternlist.is_in_source(name.get_name())
@@ -383,7 +386,7 @@ def call_expr(node, taint: list) -> List[Variable]:
             for source in source_patterns:
                 return_variable.add_new_taint(name.get_name(), current_line, source)
             
-    
+
     return [return_variable]
 
 
@@ -429,7 +432,6 @@ def assignment_expr(node, taint: list) -> List[Variable]:
                         })
         
         # If the left side is an initialized variable
-        # TODO: optimize this part
         if variablelist.is_in_variables(left.get_name()) != None:
             
             # Merge with the taints of the right side
@@ -466,18 +468,37 @@ def assignment_expr(node, taint: list) -> List[Variable]:
 
 
 def binary_expr(node, taint: list) -> List[Variable]:
+    """
+    Evaluates a binary expression and return a single variable
+    that combines all the taints from the left and right side.
+    """
+    result_left = expression(node['left'], [])
+    result_right = expression(node['right'], [])
+    
+    current_line = node['loc']['start']['line']
 
+    return_variable: Variable = Variable("", current_line)
 
-    pass
-#     list = []
-#     right_side = node['right']
-#     left_side = node['left']
-
-#     #It's not considering that it can be tainted sources, but I don't know how you want to do that
-#     if tainted_vars.is_in_tainted_vars(right_side):
-#         list.append(expression(right_side))
-#     return list
-
+    for left in result_left:
+        # If the left side is tainted
+        for taint in left.get_all_taints():
+            return_variable.add_taint(taint.copy())
+        # If the left side is a source
+        return_variable.merge_taints(
+            [Taint(left.get_name(), current_line, pattern) 
+            for pattern in patternlist.is_in_source(left.get_name())]
+        )
+    
+    for right in result_right:
+        for taint in right.get_all_taints():
+            return_variable.add_taint(taint.copy())
+        
+        return_variable.merge_taints(
+            [Taint(right.get_name(), current_line, pattern) 
+            for pattern in patternlist.is_in_source(right.get_name())]
+        )
+ 
+    return [return_variable]
 
 
 
@@ -548,8 +569,10 @@ vulnerabilities: List[str] = []
 def main():
     # slice_path = "./Examples/3-expr/3b-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
-    slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
-    patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
+    # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
+    # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
+    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
