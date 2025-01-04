@@ -380,15 +380,21 @@ def call_expr(node, taint: list) -> List[Variable]:
 
 
 def assignment_expr(node, taint: list) -> List[Variable]:
+    """
+    Evaluates an assignment expresstion and returns a 
+    single variable that combines the characteristics
+    of the left and right side.
+    """
     # list of variables on the left side
     result_left = expression(node['left'], [])
 
     # list of variables on the right side
     result_right = expression(node['right'], [])
+
+    current_line = node['loc']['start']['line']
     
-#     for right in result_right:
-#         current_line = node['loc']['start']['line']
-#         pattern_source: str = None
+    for left in result_left:
+        pass
 
 #         tainted_source: List[Tuple[str, int]] = None
 
