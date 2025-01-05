@@ -1,8 +1,8 @@
+import copy
 import sys
 import os
 import json
 import esprima
-from enum import Enum
 from typing import List, Any, Dict, Optional, Tuple, overload
 
 
@@ -15,6 +15,11 @@ class Pattern:
 
     def __str__(self):
         return f"Vulnerability: {self.name}\nSource: {self.source}\nSink: {self.sink}\n"
+    
+    def __eq__(self, value):
+        if not isinstance(value, Pattern):
+            return False
+        return self.name == value.name
     
     def get_name(self) -> str:
         return self.name
@@ -289,7 +294,11 @@ class VariableList:
 # end class VariableList
 
 
-
+def list_copy(list: list) -> list:
+    """
+    Returns a deep copy of a list.
+    """
+    return list[:]
 
 def list_merge(list1: list, list2: list) -> list:
     """
@@ -431,10 +440,10 @@ def call_expr(node, taint: list) -> List[Variable]:
     that combines the characteristics of the callee and the
     arguments.
     """
-    callee_name: List[Variable] = expression(node['callee'], [])
+    callees: List[Variable] = expression(node['callee'], [])
     arguments: List[Variable] = []
     for arg in node['arguments']:
-        list_merge(arguments, expression(arg, []))
+        list_merge(arguments, copy.deepcopy(expression(arg, [])))
 
     current_line = node['loc']['start']['line']
     # Declare a variable that will collect all the taints
@@ -442,136 +451,57 @@ def call_expr(node, taint: list) -> List[Variable]:
     return_variable: Variable = Variable("", current_line)
     aux_taint_list: List[Taint] = []
 
-    # # reimplementation
-    # for name in callee_name:
-    #     for arg in arguments:
-    #         # If the function is a sink
-    #         sink_patterns = patternlist.is_in_sink(name.get_name())
-    #         if sink_patterns != []:
-    #             # If the argument is tainted
-    #             argument_taints = arg.get_all_taints()
-    #             sinkable_taints = taints_in_patterns(argument_taints, sink_patterns)
-    #             for taint in sinkable_taints:
-    #                 print(taint)
-    #             # If the argument is a source
-    #             source_patterns = patternlist.is_in_source(arg.get_name())
-    #             for source in source_patterns:
-    #                 if source in sink_patterns:
-    #                     print({
-    #                         "vulnerability": source.get_name(),
-    #                         "source": [arg.get_name(), current_line],
-    #                         "sink": [name.get_name(), current_line],
-    #                         "unsanitized_flows": "yes (direct from source)"
-    #                     })
-            
-    #         # If the function is a sanitizer
-    #         sanitizer_patterns = patternlist.is_in_sanitizer(name.get_name())
-    #         if sanitizer_patterns != []:
-    #             # If the argument is tainted
-    #             sanitizable_taints = taints_in_patterns(arg.get_all_taints(), sanitizer_patterns)
-    #             # Add sanitizer to the taints
-    #             for taint in sanitizable_taints:
-    #                 taint.add_sanitizer_all_branches((name.get_name(), current_line))
-
-    #             # If the argument is a source
-    #             source_patterns = patternlist.is_in_source(arg.get_name())
-    #             # Create a list of taints from the source
-    #             aux_taint_list = [Taint(arg.get_name(), current_line, pattern) for pattern in source_patterns]
-    #             for taint in aux_taint_list:
-    #                 taint.add_new_branch()
-    #             # Filter out the ones that can not be sanitized
-    #             sanitizable_source_taints = taints_in_patterns(aux_taint_list, sanitizer_patterns)
-    #             for taint in sanitizable_source_taints:
-    #                 taint.add_sanitizer_all_branches((name.get_name(), current_line))
-            
-    #         # If the function is a source
-    #         source_patterns = patternlist.is_in_source(name.get_name())
-    #         if source_patterns != []:
-    #             aux_list = [Taint(name.get_name(), current_line, pattern) for pattern in source_patterns]
-    #             for taint in aux_list:
-    #                 taint.add_new_branch()
-    #             list_merge(aux_taint_list, aux_list)
-
-    #         return_variable.merge_taints(arg.get_all_taints())
-
     # return_variable.merge_taints(aux_taint_list)
     
     # return [return_variable]
 
+    # =========================== Attempt no. 2 ===========================
+    # Add all existing taints and new taints to the list
+    for arg in arguments:
+        # If the argument is a source
+        source_patterns = patternlist.is_in_source(arg.get_name())
+        for source in source_patterns:
+            # Create new taint
+            new_taint = Taint(arg.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            aux_taint_list.append(new_taint)
+        list_merge(aux_taint_list, arg.get_all_taints())
+    
 
-    # old implementation
-    for name in callee_name:
+    for callee in callees:
         # If the function is a sink
-        sink_patterns = patternlist.is_in_sink(name.get_name())
+        sink_patterns = patternlist.is_in_sink(callee.get_name())
         if sink_patterns != []:
-            # Iterate over the arguments
-            for arg in arguments:
-                # If the argument is tainted
-                argument_taints = arg.get_all_taints()
-                return_variable.merge_taints(argument_taints)
-                sinkable_taints = taints_in_patterns(argument_taints, sink_patterns)
-                for taint in sinkable_taints:
-                    print(taint)
-                # If the argument is source
-                source_patterns = patternlist.is_in_source(arg.get_name())
-                for source in source_patterns:
-                    return_variable.add_new_taint(arg.get_name(), current_line, source)
-                    if source in sink_patterns:
-                        print({
-                            "vulnerability": source.get_name(),
-                            "source": [arg.get_name(), current_line],
-                            "sink": [name.get_name(), current_line],
-                            "unsanitized_flows": "yes (direct from source)"
-                        })
+            # Filter the taints that can fall into the sink
+            sinkable_taints = taints_in_patterns(aux_taint_list, sink_patterns)
+            for taint in sinkable_taints:
+                # Register the vulnerability
+                print({
+                    "vulnerability": taint.get_pattern().get_name(),
+                    "source": [taint.source, taint.line],
+                    "sink": [callee.get_name(), current_line],
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
+                })
 
         # If the function is a sanitizer
-        sanitizer_patterns = patternlist.is_in_sanitizer(name.get_name())
+        sanitizer_patterns = patternlist.is_in_sanitizer(callee.get_name())
         if sanitizer_patterns != []:
-            # Iterate over the arguments
-            for arg in arguments:
-                # If the argument is tainted
-                sanitizable_taints = taints_in_patterns(arg.get_all_taints(), sanitizer_patterns)
-                # Add sanitizer to the taints
-                for taint in sanitizable_taints:
-                    taint.add_sanitizer_all_branches((name.get_name(), current_line))
-                return_variable.merge_taints(sanitizable_taints)
-                # Add other taints that are not sanitized
-                unsanitizable_taints = taints_not_in_patterns(arg.get_all_taints(), sanitizer_patterns)
-                return_variable.merge_taints(unsanitizable_taints)
+            # Filter the taints that can be sanitized
+            sanitizable_taints = taints_in_patterns(aux_taint_list, sanitizer_patterns)
+            for taint in sanitizable_taints:
+                # Add the saniziter
+                taint.add_sanitizer_all_branches((callee.get_name(), current_line))
 
-                # If the argument is a source
-                source_patterns = patternlist.is_in_source(arg.get_name())
-                for source in source_patterns:
-                    # Check if the source is already added as a taint
-                    add_taint = return_variable.get_taint(arg.get_name(), current_line, source)
-                    if add_taint is None:
-                        # If the source is not added, add it
-                        add_taint = Taint(arg.get_name(), current_line, source)
-                        return_variable.add_taint(add_taint)
-                    # If the source is sanitizable, add the sanitizer
-                    if source in sanitizer_patterns:
-                        add_taint.add_new_branch_sanitizers([(name.get_name(), current_line)])
-                    else:
-                        add_taint.add_new_branch()
-        
         # If the function is a source
-        source_patterns = patternlist.is_in_source(name.get_name())
+        source_patterns = patternlist.is_in_source(callee.get_name())
         if source_patterns != []:
-            # Add the taints of the arguments
-            for arg in arguments:
-                return_variable.merge_taints(arg.get_all_taints())
-            # Add the source pattern
             for source in source_patterns:
-                new_taint = Taint(name.get_name(), current_line, source)
+                new_taint = Taint(callee.get_name(), current_line, source)
                 new_taint.add_new_branch()
-                return_variable.add_taint(new_taint)
-        
-        # If the function have no effect on the taints
-        if sink_patterns == [] and source_patterns == [] and sanitizer_patterns == []:
-            for arg in arguments:
-                return_variable.merge_taints(arg.get_all_taints())
-            
-
+                aux_taint_list.append(new_taint)
+    
+    return_variable.merge_taints(aux_taint_list)
+    
     return [return_variable]
 
 
@@ -603,7 +533,7 @@ def assignment_expr(node, taint: list) -> List[Variable]:
                             "vulnerability": taint.get_pattern().get_name(),
                             "source": [taint.source, taint.line],
                             "sink": [left.get_name(), current_line],
-                            "sanitized_flows": [taint.branches]
+                            "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
                         })
                 # If the right side is a source
                 source_patterns = patternlist.is_in_source(right.get_name())
