@@ -353,7 +353,7 @@ def statement(node: List[Dict[str, Any]]):
         # TODO
         expression(node["test"], [])
         statement(node["consequent"])
-        if "alternate" not in node:
+        if "alternate" in node:
             statement(node["alternate"])
 
     elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
@@ -670,8 +670,8 @@ def main():
     # patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
-    patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
+    slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
