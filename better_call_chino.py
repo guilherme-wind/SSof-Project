@@ -571,31 +571,33 @@ def binary_expr(node, taint: list) -> List[Variable]:
     Evaluates a binary expression and return a single variable
     that combines all the taints from the left and right side.
     """
-    result_left = expression(node['left'], [])
-    result_right = expression(node['right'], [])
+    result_left = copy.deepcopy(expression(node['left'], []))
+    result_right = copy.deepcopy(expression(node['right'], []))
     
     current_line = node['loc']['start']['line']
 
     return_variable: Variable = Variable("", current_line)
+    aux_taint_list: List[Taint] = []
 
     for left in result_left:
         # If the left side is tainted
-        for taint in left.get_all_taints():
-            return_variable.add_taint(taint.copy())
+        list_merge(aux_taint_list, left.get_all_taints())
         # If the left side is a source
-        return_variable.merge_taints(
-            [Taint(left.get_name(), current_line, pattern) 
-            for pattern in patternlist.is_in_source(left.get_name())]
-        )
+        source_patterns = patternlist.is_in_source(left.get_name())
+        for source in source_patterns:
+            new_taint = Taint(left.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            aux_taint_list.append(new_taint)
     
     for right in result_right:
-        for taint in right.get_all_taints():
-            return_variable.add_taint(taint.copy())
-        
-        return_variable.merge_taints(
-            [Taint(right.get_name(), current_line, pattern) 
-            for pattern in patternlist.is_in_source(right.get_name())]
-        )
+        list_merge(aux_taint_list, right.get_all_taints())
+        source_patterns = patternlist.is_in_source(right.get_name())
+        for source in source_patterns:
+            new_taint = Taint(right.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            aux_taint_list.append(new_taint)
+    
+    return_variable.merge_taints(aux_taint_list)
  
     return [return_variable]
 
@@ -666,12 +668,12 @@ variablelist: VariableList = VariableList()
 vulnerabilities: List[str] = []
 
 def main():
-    # slice_path = "./Examples/3-expr/3b-expr-func-calls.js"
-    # patterns_path = "./Examples/3-expr/3b-expr-func-calls.patterns.json"
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
-    patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
+    # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    slice_path = "./Examples/3-expr/3c-expr-attributes.js"
+    patterns_path = "./Examples/3-expr/3c-expr-attributes.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
