@@ -405,18 +405,6 @@ def identifier(node, tainted: list) -> List[Variable]:
     var = variablelist.is_in_variables(node['name'])
     if var != None:
         return [var]
-    # If the identifier is a source
-    # var = patternlist.is_in_source(node['name'])
-    # if var != []:
-    #     return [Variable(node['name'], 0)]
-    # If the identifier is a sink
-    # var = patternlist.is_in_sink(node['name'])
-    # if var != []:
-    #     return [Variable(node['name'], 0)]
-    # If the identifier is a sanitizer
-    # var = patternlist.is_in_sanitizer(node['name'])
-    # if var != []:
-    #     return [Variable(node['name'], 0)]
     # If the identifier is not initialized
     current_line = node['loc']['start']['line']
     var = Variable(node['name'], current_line)
@@ -450,12 +438,7 @@ def call_expr(node, taint: list) -> List[Variable]:
     # from the arguments and the callee
     return_variable: Variable = Variable("", current_line)
     aux_taint_list: List[Taint] = []
-
-    # return_variable.merge_taints(aux_taint_list)
     
-    # return [return_variable]
-
-    # =========================== Attempt no. 2 ===========================
     # Add all existing taints and new taints to the list
     for arg in arguments:
         # If the argument is a source
