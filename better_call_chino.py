@@ -353,7 +353,7 @@ def statement(node: List[Dict[str, Any]]):
         # TODO
         expression(node["test"], [])
         statement(node["consequent"])
-        if node["alternate"] is not None:
+        if "alternate" not in node:
             statement(node["alternate"])
 
     elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
