@@ -530,7 +530,6 @@ def call_expr(node, taint: list) -> List[Variable]:
                     "sink": [callee.get_name(), current_line],
                     "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or []
                 })
-                vulnerabilities_counter += 1
 
         # If the function is a sanitizer
         sanitizer_patterns = patternlist.is_in_sanitizer(callee.get_name())
@@ -625,7 +624,6 @@ def assignment_expr(node, taint: list) -> List[Variable]:
                     "sink": [left.get_name(), current_line],
                     "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or []
                 })
-                vulnerabilities_counter += 1
         
         # If the left side is an initialized variable
         initialized_var = variablelist.is_in_variables(left.get_name())
