@@ -297,6 +297,10 @@ class VariableList:
                 return variable
         return None
 # end class VariableList
+class Branch:
+    def __init__(self,implicit: bool = False, initializedVars : List[Variable] = []):
+        self.implicit = implicit
+        self.initializedVars : List[Variable] = initializedVars
 
 class Vulnerability:
     def __init__(self, taint: Taint, counter: int, sink: str, line: int, implicit: bool):
@@ -416,12 +420,15 @@ def analyze(node):
     
     if node["type"] == 'Program':
         for child in node["body"]:
-            statement(child)
+            statement(child, variablelist)
 
     return
 
 
-def statement(node: List[Dict[str, Any]]):
+def statement(node: List[Dict[str, Any]], context: Optional[VariableList] = None):
+    if context is None:
+        context = VariableList()
+
     if node["type"] == 'ExpressionStatement':
         expression(node["expression"], [])
 
@@ -430,16 +437,16 @@ def statement(node: List[Dict[str, Any]]):
             statement(child)
 
     elif node["type"] == 'IfStatement':
-        # TODO
-        expression(node["test"], [])
-        statement(node["consequent"])
-        if "alternate" in node:
-            statement(node["alternate"])
+        analyzeIf(node, context)
+        #expression(node["test"], [])
+        #statement(node["consequent"])
+        #if "alternate" in node:
+         #   statement(node["alternate"])
 
     elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
         # TODO
         expression(node["test"], [])
-        statement(node["body"])
+        statement(node["body"], context)
         return
 
     else:
@@ -679,10 +686,41 @@ def binary_expr(node, taint: list) -> List[Variable]:
 
 
 
+def analyzeIf(node, context: Optional[VariableList] = None):
+    if context is None:
+        context = VariableList()  # Initialize to an empty VariableList if None
 
+    variables = context.variables  # Access the 'variables' attribute of VariableList
 
+    # Copy the context for branches
+    consequent_variables = VariableList()
+    consequent_variables.variables = [var.copy() for var in context.variables]
 
+    alternate_variables = VariableList()
+    alternate_variables.variables = [var.copy() for var in context.variables]
 
+    # Analyze the test condition
+    expression(node["test"], variables)
+
+    # Analyze the branches
+    if "consequent" in node:
+        statement(node["consequent"], consequent_variables)
+    if "alternate" in node:
+        statement(node["alternate"], alternate_variables)
+
+    # Merge variables back into the main context
+    for var in context.variables:
+        matching_var_consequent = consequent_variables.is_in_variables(var.name)
+        matching_var_alternate = alternate_variables.is_in_variables(var.name)
+
+        if matching_var_consequent and matching_var_alternate:
+            # Merge taints from both branches
+            var.merge_taints(matching_var_consequent.get_all_taints())
+            var.merge_taints(matching_var_alternate.get_all_taints())
+        elif matching_var_consequent:
+            var.merge_taints(matching_var_consequent.get_all_taints())
+        elif matching_var_alternate:
+            var.merge_taints(matching_var_alternate.get_all_taints())
 
 
 
@@ -746,12 +784,12 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    #slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    #patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
     # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
-    # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
-    # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
