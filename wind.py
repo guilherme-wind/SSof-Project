@@ -1,12 +1,14 @@
+import copy
 import sys
 import os
 import json
 import esprima
-from enum import Enum
 from typing import List, Any, Dict, Optional, Tuple, overload
 
 results = []
-
+vulnerabilities_counter = 1
+vulnerabilities_name = ""
+    
 class Pattern:
     def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
         self.name = name
@@ -16,6 +18,11 @@ class Pattern:
 
     def __str__(self):
         return f"Vulnerability: {self.name}\nSource: {self.source}\nSink: {self.sink}\n"
+    
+    def __eq__(self, value):
+        if not isinstance(value, Pattern):
+            return False
+        return self.name == value.name
     
     def get_name(self) -> str:
         return self.name
@@ -92,19 +99,102 @@ class PatternList:
         return None
 # end class PatternList
 
+class TaintBranch:
+    def __init__(self, implicit: bool = False):
+        self.sanitizers: List[Tuple[str, int]] = []
+        self.implicit = implicit
+        self.unsanitized: bool = True
+    
+    def __eq__(self, value):
+        if not isinstance(value, TaintBranch):
+            return False
+        return self.sanitizers == value.sanitizers
+
+    def __str__(self):
+        string = "["
+        for san in self.sanitizers:
+            string += f"[{san[0]}, {san[1]}], "
+        return string + "]"
+    
+    def add_sanitizer(self, sanitizer: Tuple[str, int]):
+        self.unsanitized = False
+        if sanitizer not in self.sanitizers:
+            self.sanitizers.append(sanitizer)
+    
+    def add_sanitizers(self, sanitizers: List[Tuple[str, int]]):
+        for sanitizer in sanitizers:
+            self.add_sanitizer(sanitizer)
+    
+    def get_sanitizers(self) -> List[Tuple[str, int]]:
+        return self.sanitizers
+    
+    def is_unsanitized(self) -> bool:
+        return self.unsanitized
+    
+    def copy(self) -> 'TaintBranch':
+        """
+        Returns a deep copy of the TaintBranch object.
+        """
+        copy = TaintBranch(self.implicit)
+        for sanitizer in self.sanitizers:
+            copy.add_sanitizer(sanitizer)
+        return copy
+# end class TaintBranch
+
 class Taint:
     def __init__(self, source: str, line: int, pattern: Pattern, implicit: bool = False):
         self.source = source
         self.line = line
         self.pattern = pattern
         self.implicit = implicit
-        self.sanitizer: List[Tuple[str, int]] = []
+        self.branches: List[TaintBranch] = []
+    
+    def __str__(self):
+        vulnerability = self.pattern.get_name()
+        source = self.source
+        line = self.line
+        unsanitized_flows: str = "yes"
+        sanitized_flows: str = ""
+        for branch in self.branches:
+            if not branch.is_unsanitized():
+                unsanitized_flows = "no"
+            sanitized_flows += f"{branch}, "
+        return f"Vulnerability: {vulnerability}, Source: [{source}, {line}], Unsanitized flows: {unsanitized_flows}"
 
     def get_pattern(self) -> Pattern:
         return self.pattern
     
+    def get_branches(self) -> List[TaintBranch]:
+        return self.branches
+    
+    def add_branch(self, branch: TaintBranch):
+        self.branches.append(branch)
+    
+    def add_new_branch(self):
+        """
+        Create a new branch without any sanitizer.
+        """
+        new_branch = TaintBranch()
+        self.branches.append(new_branch)
+    
+    def add_new_branch_sanitizers(self, sanitizers: List[Tuple[str, int]]):
+        """
+        Add a new branch to the taint with a list of sanitizers.
+        """
+        new_branch = TaintBranch()
+        new_branch.add_sanitizers(sanitizers)
+        self.branches.append(new_branch)
+    
+    def add_sanitizer_all_branches(self, sanitizer: Tuple[str, int]):
+        """
+        Add a sanitizer to all the branches of the taint.
+        """
+        for branch in self.branches:
+            branch.add_sanitizer(sanitizer)
+    
     def add_sanitizer(self, sanitizer: Tuple[str, int]):
         """
+        deprecated
         Add a sanitizer to the taint. The sanitizer is a tuple
         (name of sanitizer in pattern, line of code).
         """
@@ -116,8 +206,8 @@ class Taint:
         Returns a deep copy of the Taint object.
         """
         copy = Taint(self.source, self.line, self.pattern, self.implicit)
-        for sanitizer in self.sanitizer:
-            copy.add_sanitizer(sanitizer)
+        for branch in self.branches:
+            copy.add_branch(branch.copy())
         return copy
 # end class Taint
 
@@ -143,15 +233,26 @@ class Variable:
             self.taint.append(Taint(source, line, pattern, implicit))
     
     def add_taint(self, taint: Taint):
-        self.taint.append(taint)
+        """
+        Add a taint to the variable. Makes a copy of the taint added.
+        """
+        self.taint.append(taint.copy())
     
     def merge_taints(self, taints: List[Taint]):
         """
         Merge a list of taints with the taints of the variable.
+        This method makes a copy of the taints added to the variable.
         """
         for taint in taints:
-            if self.get_taint(taint.source, taint.line, taint.get_pattern()) is None:
-                self.taint.append(taint)
+            existing_taint = self.get_taint(taint.source, taint.line, taint.get_pattern())
+            if existing_taint is None:
+                self.taint.append(taint.copy())
+            else:
+                # Compare the branches of the taints
+                for branch in taint.get_branches():
+                    existing_branch = existing_taint.get_branches()
+                    if existing_branch is [] or branch != existing_branch:
+                        existing_taint.add_branch(branch.copy())
     
     def get_taint(self, source: str, line: int, pattern: Pattern) -> Optional[Taint]:
         for taint in self.taint:
@@ -195,22 +296,52 @@ class VariableList:
         return None
 # end class VariableList
 
-def serialize_taint(taint: Taint) -> Dict:
-    return {
-        "source": taint.source,
-        "line": taint.line,
-        "pattern": taint.get_pattern().get_name(),
-        "implicit": taint.implicit,
-        "sanitizers": [{"name": san[0], "line": san[1]} for san in taint.sanitizer],
-    }
+class Vulnerability:
+    def __init__(self, taint: Taint, counter: int, sink: str, line: int):
+        self.counter = counter
+        self.taint = taint
+        self.sink = sink
+        self.line = line
+    
+    def to_json(self) -> Dict[str, Any]:
+        vuln_name = self.taint.get_pattern().get_name() + "_" + str(self.counter)
+        is_unsanitzed: bool = True
+        branches: list = []
+        for branch in self.taint.get_branches():
+            sanitizer = branch.get_sanitizers()
+            if sanitizer != []:
+                branches.append(sanitizer)
+                is_unsanitzed = False
+        return {
+            "vulnerability": vuln_name,
+            "source": [self.taint.source, self.taint.line],
+            "sink": [self.sink, self.line],
+            "unsanitized_flows": "yes" if is_unsanitzed else "no",
+            "sanitized_flows": branches,
+            "implicit": "Not implemented"
+        }
+# end class Vulnerability
 
-def serialize_variable(variable: Variable) -> Dict:
-    return {
-        "name": variable.get_name(),
-        "line": variable.initline,
-        "taints": [serialize_taint(taint) for taint in variable.get_all_taints()],
-    }
+class VulnerabilityList:
+    def __init__(self):
+        self.vulnerabilities: List[Vulnerability] = []
+        self.counters = dict()
+    
+    def add_vulnerability(self, taint: Taint, sink: str, line: int):
+        if taint.get_pattern().get_name() not in self.counters:
+            self.counters[taint.get_pattern().get_name()] = 0
+        self.counters[taint.get_pattern().get_name()] += 1
+        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line))
+    
+    def to_json(self) -> List[Dict[str, Any]]:
+        return [vuln.to_json() for vuln in self.vulnerabilities]
 
+# ========================= Utility functions =========================
+def list_copy(list: list) -> list:
+    """
+    Returns a deep copy of a list.
+    """
+    return list[:]
 
 def list_merge(list1: list, list2: list) -> list:
     """
@@ -221,7 +352,26 @@ def list_merge(list1: list, list2: list) -> list:
         list1.append(element)
     return list1
 
+def taints_in_patterns(taints: List[Taint], patterns: List[Pattern]) -> List[Taint]:
+    """
+    Returns a list of taints that are in the patterns.
+    """
+    results: List[Taint] = []
+    for taint in taints:
+        if taint.get_pattern() in patterns:
+            results.append(taint)
+    return results
 
+def taints_not_in_patterns(taints: List[Taint], patterns: List[Pattern]) -> List[Taint]:
+    """
+    Returns a list of taints that are not in the patterns.
+    """
+    results: List[Taint] = []
+    for taint in taints:
+        if taint.get_pattern() not in patterns:
+            results.append(taint)
+    return results
+# =====================================================================
 
 
 def analyze(node):
@@ -244,43 +394,50 @@ def statement(node: List[Dict[str, Any]]):
             statement(child)
 
     elif node["type"] == 'IfStatement':
+        # TODO
         expression(node["test"], [])
         statement(node["consequent"])
-        if "alternate" in node and node["alternate"] is not None:
+        if "alternate" in node:
             statement(node["alternate"])
 
-    elif node["type"] == 'WhileStatement' or node["type"] == 'DoWhileStatement':
+    elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
+        # TODO
         expression(node["test"], [])
         statement(node["body"])
+        return
+
+    else:
+        return
+
 
 
 def expression(node: List[Dict[str, Any]], tainted: list) -> List[Variable]:
     if node["type"] == 'UnaryExpression':
-        return expression(node["argument"], tainted) or []
+        expression(node["argument"], tainted)
 
     elif node["type"] == 'BinaryExpression':
-        return binary_expr(node, tainted) or []
+        return binary_expr(node, tainted)
     
     elif node["type"] == 'AssignmentExpression':
-        return assignment_expr(node, tainted) or []
+        return assignment_expr(node, tainted)
     
     elif node["type"] == 'LogicalExpression':
-        return []
+        return
     
     elif node["type"] == 'MemberExpression':
-        return member_expr(node, tainted) or []
+        return member_expr(node, tainted)
     
     elif node["type"] == 'CallExpression':
-        return call_expr(node, tainted) or []
+        return call_expr(node, tainted)
     
     elif node["type"] == 'Identifier':
-        return identifier(node, tainted) or []
+        return identifier(node, tainted)
     
     elif node["type"] == 'Literal':
         return []
     
-    return []
-
+    else:
+        return
     
 def identifier(node, tainted: list) -> List[Variable]:
     """
@@ -292,18 +449,6 @@ def identifier(node, tainted: list) -> List[Variable]:
     var = variablelist.is_in_variables(node['name'])
     if var != None:
         return [var]
-    # If the identifier is a source
-    var = patternlist.is_in_source(node['name'])
-    if var != []:
-        return [Variable(node['name'], 0)]
-    # If the identifier is a sink
-    var = patternlist.is_in_sink(node['name'])
-    if var != []:
-        return [Variable(node['name'], 0)]
-    # If the identifier is a sanitizer
-    var = patternlist.is_in_sanitizer(node['name'])
-    if var != []:
-        return [Variable(node['name'], 0)]
     # If the identifier is not initialized
     current_line = node['loc']['start']['line']
     var = Variable(node['name'], current_line)
@@ -316,8 +461,7 @@ def member_expr(node, taint: list) -> List[Variable]:
     Converts a member expression to a list of variables.
     E.g.: a.b.c -> [a, b, c]
     """
-    list: List[Variable] = []
-    list_merge(list, expression(node['object'], []))
+    list: List[Variable] = copy.deepcopy(expression(node['object'], []))
     list_merge(list, expression(node['property'], []))
     return list
 
@@ -327,80 +471,85 @@ def call_expr(node, taint: list) -> List[Variable]:
     that combines the characteristics of the callee and the
     arguments.
     """
+    global vulnerabilities_counter
+    global vulnerabilities_name
     
-    global vulnerability_counter
-    if 'vulnerability_counter' not in globals():
-        vulnerability_counter = 1
-    
-    
-    callee_name: List[Variable] = expression(node['callee'], [])
+    callees: List[Variable] = copy.deepcopy(expression(node['callee'], []))
     arguments: List[Variable] = []
     for arg in node['arguments']:
-        list_merge(arguments, expression(arg, []))
+        list_merge(arguments, copy.deepcopy(expression(arg, [])))
 
     current_line = node['loc']['start']['line']
     # Declare a variable that will collect all the taints
     # from the arguments and the callee
     return_variable: Variable = Variable("", current_line)
+    aux_taint_list: List[Taint] = []
+    
+    # Add all existing taints and new taints to the list
+    for arg in arguments:
+        # If the argument is a source
+        source_patterns = patternlist.is_in_source(arg.get_name())
+        for source in source_patterns:
+            # Create new taint
+            new_taint = Taint(arg.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            aux_taint_list.append(new_taint)
+        list_merge(aux_taint_list, arg.get_all_taints())
+    
 
-    for name in callee_name:
+    for callee in callees:
         # If the function is a sink
-        sink_patterns = patternlist.is_in_sink(name.get_name())
+        sink_patterns = patternlist.is_in_sink(callee.get_name())
         if sink_patterns != []:
-            # Iterate over the arguments
-            for arg in arguments:
-                # If the argument is tainted
-                for taint in arg.get_all_taints():
-                    return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
-                    # If the pattern match the sink
-                    if taint.get_pattern() in sink_patterns:
-                        results.append({
-                            "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerability_counter}",
-                            "source": [taint.source, taint.line],
-                            "sink": [name.get_name(), current_line],
-                            "unsanitized_flows": "yes" if not taint.sanitizer else "no",
-                            "sanitized_flows": [{"name": san[0], "line": san[1]} for san in taint.sanitizer],
-                            "implicit": "yes" if taint.implicit else "no",
-                        })
-                        vulnerability_counter += 1
-                # If the argument is source
-                source_patterns = patternlist.is_in_source(arg.get_name())
-                for source in source_patterns:
-                    return_variable.add_new_taint(arg.get_name(), current_line, source)
-                    if source in sink_patterns:
-                        results.append({
-                            "vulnerability": f"{source.get_name()}_{vulnerability_counter}",
-                            "source": [arg.get_name(), current_line],
-                            "sink": [name.get_name(), current_line]
-                        })
-                        vulnerability_counter += 1
+            # Filter the taints that can fall into the sink
+            sinkable_taints = taints_in_patterns(aux_taint_list, sink_patterns)
+            for taint in sinkable_taints:
+                # Register the vulnerability
+                vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
+                if vulnerabilities_name != taint.get_pattern().get_name():
+                    vulnerabilities_name = taint.get_pattern().get_name()
+                    vulnerabilities_counter = 1
+                results.append({
+                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
+                    "source": [taint.source, taint.line],
+                    "sink": [callee.get_name(), current_line],
+                    "unsanitized_flows": "no" if any(branch.get_sanitizers() for branch in taint.get_branches()) else "yes",
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or [],
+                    "implicit": "no"
+                })
+                print({
+                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
+                    "source": [taint.source, taint.line],
+                    "sink": [callee.get_name(), current_line],
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or []
+                })
+                vulnerabilities_counter += 1
 
         # If the function is a sanitizer
-        sanitizer_patterns = patternlist.is_in_sanitizer(name.get_name())
+        sanitizer_patterns = patternlist.is_in_sanitizer(callee.get_name())
         if sanitizer_patterns != []:
-            # Iterate over the arguments
-            for arg in arguments:
-                for taint in arg.get_all_taints():
-                    # If the taint is already in the return variable
-                    add_taint = return_variable.get_taint(taint.source, taint.line, taint.get_pattern())
-                    if add_taint is None:
-                        add_taint = Taint(taint.source, taint.line, taint.get_pattern())
-                        return_variable.add_taint(add_taint)
-                    # If the taint pattern is in the sanitizer patterns
-                    if taint.get_pattern() in sanitizer_patterns:
-                        add_taint.add_sanitizer((name, current_line))
-        
+            # Filter the taints that can be sanitized
+            sanitizable_taints = taints_in_patterns(aux_taint_list, sanitizer_patterns)
+            for taint in sanitizable_taints:
+                # Add the saniziter
+                taint.add_sanitizer_all_branches((callee.get_name(), current_line))
+
         # If the function is a source
-        source_patterns = patternlist.is_in_source(name.get_name())
+        source_patterns = patternlist.is_in_source(callee.get_name())
         if source_patterns != []:
-            # Add the taints of the arguments
-            for arg in arguments:
-                for taint in arg.get_all_taints():
-                    return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
-            # Add the source pattern
             for source in source_patterns:
-                return_variable.add_new_taint(name.get_name(), current_line, source)
-            
+                new_taint = Taint(callee.get_name(), current_line, source)
+                new_taint.add_new_branch()
+                aux_taint_list.append(new_taint)
+        
+        # If the callee is not the last element of the callees
+        # which means that it's not the function, but instead
+        # the object that contains the function
+        if callee != callees[-1]:
+            # Merge the taints of the callee
+            list_merge(aux_taint_list, callee.get_all_taints())
+
+    return_variable.merge_taints(aux_taint_list)
     
     return [return_variable]
 
@@ -411,102 +560,115 @@ def assignment_expr(node, taint: list) -> List[Variable]:
     single variable that combines the characteristics
     of the left and right side.
     """
+    
+    global vulnerabilities_counter
+    global vulnerabilities_name
+    
     # list of variables on the left side
-    result_left: List[Variable] = expression(node['left'], [])
+    result_left: List[Variable] = copy.deepcopy(expression(node['left'], []))
 
     # list of variables on the right side
-    result_right: List[Variable] = expression(node['right'], [])
+    result_right: List[Variable] = copy.deepcopy(expression(node['right'], []))
 
     current_line = node['loc']['start']['line']
-    
-    global vulnerability_counter
-    if 'vulnerability_counter' not in globals():
-        vulnerability_counter = 1
-    
+
+    return_variable: Variable = Variable("", current_line)
+    right_taint_list: List[Taint] = []
+    left_taint_list: List[Taint] = []
+
+    for right in result_right:
+        # If the right side is tainted
+        list_merge(right_taint_list, right.get_all_taints())
+        # If the right side is a source
+        source_patterns = patternlist.is_in_source(right.get_name())
+        for source in source_patterns:
+            # Create new taint
+            new_taint = Taint(right.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            right_taint_list.append(new_taint)
+
     for left in result_left:
         # If the left side is a sink
         sink_patterns = patternlist.is_in_sink(left.get_name())
         if sink_patterns != []:
-            # Iterate over the right side
-            for right in result_right:
-                # If the right side is tainted
-                for taint in right.get_all_taints():
-                    # return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
-                    if taint.get_pattern() in sink_patterns:
-                        results.append({
-                            "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerability_counter}",
-                            "source": [taint.source, taint.line],
-                            "sink": [left.get_name(), current_line],
-                            "unsanitized_flows": "yes" if not taint.sanitizer else "no",
-                            "sanitized_flows": [{"name": san[0], "line": san[1]} for san in taint.sanitizer],
-                            "implicit": "yes" if taint.implicit else "no",
-                        })
-                        vulnerability_counter += 1
-                # If the right side is a source
-                source_patterns = patternlist.is_in_source(right.get_name())
-                for source in source_patterns:
-                    # return_variable.add_new_taint(right.get_name(), current_line, source)
-                    if source in sink_patterns:
-                        results.append({
-                            "vulnerability": f"{source.get_name()}_{vulnerability_counter}",
-                            "source": [right.get_name(), current_line],
-                            "sink": [left.get_name(), current_line],
-                            "unsanitized_flows": "yes",
-                            "sanitized_flows": [],
-                            "implicit": "no"
-                        })
-                        vulnerability_counter += 1
+            # Filter the taints that can fall into the sink
+            sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
+            for taint in sinkable_taints:
+                vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
+                if vulnerabilities_name != taint.get_pattern().get_name():
+                    vulnerabilities_name = taint.get_pattern().get_name()
+                    vulnerabilities_counter = 1
+                results.append({
+                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
+                    "source": [taint.source, taint.line],
+                    "sink": [left.get_name(), current_line],
+                    "unsanitized_flows": "no" if any(branch.get_sanitizers() for branch in taint.get_branches()) else "yes",
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or [],
+                    "implicit": "no"
+                })
+                print({
+                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
+                    "source": [taint.source, taint.line],
+                    "sink": [left.get_name(), current_line],
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or []
+                })
+                vulnerabilities_counter += 1
         
         # If the left side is an initialized variable
-        # TODO: optimize this part
-        if variablelist.is_in_variables(left.get_name()) != None:
-            
+        initialized_var = variablelist.is_in_variables(left.get_name())
+        if initialized_var != None:
             # Merge with the taints of the right side
-            for right in result_right:
-                left.merge_taints(right.get_all_taints())
-            # If the right side is a source, create new taints
-            for right in result_right:
-                left.merge_taints([
-                    Taint(right.get_name(), current_line, pattern) 
-                    for pattern in patternlist.is_in_source(right.get_name())
-                ])
+            left_taint_list = copy.deepcopy(initialized_var.get_all_taints())
+            list_merge(left_taint_list, right_taint_list)
+            initialized_var.merge_taints(right_taint_list)
 
-        # If the left side is an uninitialized variable
         elif left == result_left[-1]:
             # Initialize a new variable ONLY if its the last element
             # of the left side
+            left_taint_list = right_taint_list
+            initialized_var = Variable(left.get_name(), current_line)
+            initialized_var.merge_taints(right_taint_list)
+            variablelist.add_variable(initialized_var)
 
-            new_var = Variable(left.get_name(), current_line)
+    return_variable.merge_taints(left_taint_list)
 
-            # Merge with the taints of the right side
-            for right in result_right:
-                new_var.merge_taints(right.get_all_taints())
-
-            # If the right side is a source, create new taints
-            for right in result_right:
-                new_var.merge_taints([
-                    Taint(right.get_name(), current_line, pattern) 
-                    for pattern in patternlist.is_in_source(right.get_name())
-                ])
-            
-            variablelist.add_variable(new_var)
-            
-    return []
+    return [return_variable]
 
 
 def binary_expr(node, taint: list) -> List[Variable]:
+    """
+    Evaluates a binary expression and return a single variable
+    that combines all the taints from the left and right side.
+    """
+    result_left = copy.deepcopy(expression(node['left'], []))
+    result_right = copy.deepcopy(expression(node['right'], []))
+    
+    current_line = node['loc']['start']['line']
 
+    return_variable: Variable = Variable("", current_line)
+    aux_taint_list: List[Taint] = []
 
-    pass
-#     list = []
-#     right_side = node['right']
-#     left_side = node['left']
-
-#     #It's not considering that it can be tainted sources, but I don't know how you want to do that
-#     if tainted_vars.is_in_tainted_vars(right_side):
-#         list.append(expression(right_side))
-#     return list
-
+    for left in result_left:
+        # If the left side is tainted
+        list_merge(aux_taint_list, left.get_all_taints())
+        # If the left side is a source
+        source_patterns = patternlist.is_in_source(left.get_name())
+        for source in source_patterns:
+            new_taint = Taint(left.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            aux_taint_list.append(new_taint)
+    
+    for right in result_right:
+        list_merge(aux_taint_list, right.get_all_taints())
+        source_patterns = patternlist.is_in_source(right.get_name())
+        for source in source_patterns:
+            new_taint = Taint(right.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            aux_taint_list.append(new_taint)
+    
+    return_variable.merge_taints(aux_taint_list)
+ 
+    return [return_variable]
 
 
 
@@ -572,37 +734,22 @@ class FileHandler:
 
 patternlist: PatternList
 variablelist: VariableList = VariableList()
-vulnerabilities: List[str] = []
-
-
-def serialize_results(results):
-        """
-        Serializes the results list to ensure all objects are JSON-compatible.
-        """
-        serialized = []
-        for result in results:
-            if isinstance(result, Variable):
-                serialized.append(serialize_variable(result))
-            elif isinstance(result, dict):  # Already a dictionary
-                serialized.append(result)
-            else:
-                raise TypeError(f"Cannot serialize object of type {type(result)}")
-        return serialized
+vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
-        sys.exit(1)
+    # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
+    # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
+    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    #slice_path = "./Examples/3-expr/3c-expr-attributes.js"
+    #patterns_path = "./Examples/3-expr/3c-expr-attributes.patterns.json"
+    # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
     
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    #slice_path = sys.argv[1]
+    #patterns_path = sys.argv[2]
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
-
-    for path in [slice_path, patterns_path]:
-        if not os.path.exists(path):
-            print(f"\033[31mError: File not found -> {path}\033[0m", file=sys.stderr)
-            sys.exit(1)
 
     slice_code: str = FileHandler.load_file(slice_path)
     raw_patterns: str = json.loads(FileHandler.load_file(patterns_path))
@@ -613,15 +760,8 @@ def main():
 
     analyze(parsed_ast)
 
-    # Serialize results
-    serialized_results = serialize_results(results)
-    
-    # Print detected vulnerabilities
-    print(f"\033[34mDetected Vulnerabilities:\033[0m\n{json.dumps(serialized_results, indent=4)}")
-
-    # Save to output file
     output_file = f"{FileHandler.extract_filename_without_extension(slice_path)}.output.json"
-    FileHandler.save(output_file, serialized_results)
+    FileHandler.save(output_file, results)
 
 if __name__ == "__main__":
     main()
