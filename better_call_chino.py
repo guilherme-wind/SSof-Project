@@ -5,9 +5,6 @@ import json
 import esprima
 from typing import List, Any, Dict, Optional, Tuple, overload
 
-results = []
-vulnerabilities_counter = 1
-vulnerabilities_name = []
 
 class Pattern:
     def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
@@ -302,11 +299,12 @@ class VariableList:
 # end class VariableList
 
 class Vulnerability:
-    def __init__(self, taint: Taint, counter: int, sink: str, line: int):
+    def __init__(self, taint: Taint, counter: int, sink: str, line: int, implicit: bool):
         self.counter = counter
         self.taint = taint
         self.sink = sink
         self.line = line
+        self.implicit = implicit
     
     def to_json(self) -> Dict[str, Any]:
         vuln_name = self.taint.get_pattern().get_name() + "_" + str(self.counter)
@@ -323,7 +321,7 @@ class Vulnerability:
             "sink": [self.sink, self.line],
             "unsanitized_flows": "yes" if is_unsanitzed else "no",
             "sanitized_flows": branches,
-            "implicit": "Not implemented"
+            "implicit": "yes" if self.implicit else "no"
         }
 # end class Vulnerability
 
@@ -332,14 +330,19 @@ class VulnerabilityList:
         self.vulnerabilities: List[Vulnerability] = []
         self.counters = dict()
     
-    def add_vulnerability(self, taint: Taint, sink: str, line: int):
+    def add_vulnerability(self, taint: Taint, sink: str, line: int, implicit: bool = False):
         if taint.get_pattern().get_name() not in self.counters:
             self.counters[taint.get_pattern().get_name()] = 0
         self.counters[taint.get_pattern().get_name()] += 1
-        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line))
+        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line, implicit))
     
     def to_json(self) -> List[Dict[str, Any]]:
         return [vuln.to_json() for vuln in self.vulnerabilities]
+# end class VulnerabilityList
+
+class Branch:
+    def __init__(self):
+        pass
 
 # ========================= Utility functions =========================
 def list_copy(list: list) -> list:
@@ -377,14 +380,19 @@ def taints_not_in_patterns(taints: List[Taint], patterns: List[Pattern]) -> List
             results.append(taint)
     return results
 
-def add_taint_to_list(taint: Taint, taints: List[Taint]) -> List[Taint]:
+def add_taint_to_list(to_add_taint: Taint, taints: List[Taint]):
     """
     Adds a taint to a list of taints. If the taint is already
-    present in the list, it won't be added.
+    present in the list, their branches will be merged.
     """
-    if taint not in taints:
-        taints.append(taint)
-    return taints
+    if to_add_taint not in taints:
+        taints.append(to_add_taint)
+    
+    for t in taints:
+        if t == to_add_taint:
+            for branch in to_add_taint.get_branches():
+                if branch not in t.get_branches():
+                    t.add_branch(branch)
 # =====================================================================
 
 
@@ -520,29 +528,11 @@ def call_expr(node, taint: list) -> List[Variable]:
             for taint in sinkable_taints:
                 # Register the vulnerability
                 vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
-                for i, (name, count) in enumerate(vulnerabilities_name):
-                    if name == taint.get_pattern().get_name():
-                        # Update the counter if the name exists
-                        vulnerabilities_name[i] = (name, count + 1)
-                        vulnerabilities_counter = count + 1
-                        break
-                else:
-                    vulnerabilities_name.append((taint.get_pattern().get_name(), 1))
-                    vulnerabilities_counter = 1
-                    
-                results.append({
-                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
-                    "source": [taint.source, taint.line],
-                    "sink": [callee.get_name(), current_line],
-                    "unsanitized_flows": "no" if any(branch.get_sanitizers() for branch in taint.get_branches()) else "yes",
-                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or [],
-                    "implicit": "no"
-                })
                 print({
-                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
+                    "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [callee.get_name(), current_line],
-                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or []
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
                 })
 
         # If the function is a sanitizer
@@ -602,7 +592,7 @@ def assignment_expr(node, taint: list) -> List[Variable]:
             # Create new taint
             new_taint = Taint(right.get_name(), current_line, source)
             new_taint.add_new_branch()
-            right_taint_list.append(new_taint)
+            add_taint_to_list(new_taint, right_taint_list)
 
     for left in result_left:
         # If the left side is a sink
@@ -612,28 +602,11 @@ def assignment_expr(node, taint: list) -> List[Variable]:
             sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
             for taint in sinkable_taints:
                 vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
-                for i, (name, count) in enumerate(vulnerabilities_name):
-                    if name == taint.get_pattern().get_name():
-                        # Update the counter if the name exists
-                        vulnerabilities_name[i] = (name, count + 1)
-                        vulnerabilities_counter = count + 1
-                        break
-                else:
-                    vulnerabilities_name.append((taint.get_pattern().get_name(), 1))
-                    vulnerabilities_counter = 1
-                results.append({
-                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
-                    "source": [taint.source, taint.line],
-                    "sink": [left.get_name(), current_line],
-                    "unsanitized_flows": "no" if any(branch.get_sanitizers() for branch in taint.get_branches()) else "yes",
-                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or [],
-                    "implicit": "no"
-                })
                 print({
-                    "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
+                    "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [left.get_name(), current_line],
-                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches() if branch.get_sanitizers()] or []
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
                 })
         
         # If the left side is an initialized variable
@@ -678,7 +651,7 @@ def binary_expr(node, taint: list) -> List[Variable]:
         for source in source_patterns:
             new_taint = Taint(left.get_name(), current_line, source)
             new_taint.add_new_branch()
-            aux_taint_list.append(new_taint)
+            add_taint_to_list(new_taint, aux_taint_list)
     
     for right in result_right:
         list_merge(aux_taint_list, right.get_all_taints())
@@ -686,7 +659,7 @@ def binary_expr(node, taint: list) -> List[Variable]:
         for source in source_patterns:
             new_taint = Taint(right.get_name(), current_line, source)
             new_taint.add_new_branch()
-            aux_taint_list.append(new_taint)
+            add_taint_to_list(new_taint, aux_taint_list)
     
     return_variable.merge_taints(aux_taint_list)
  
@@ -761,11 +734,13 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
+    patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
-    
+
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
     slice_code: str = FileHandler.load_file(slice_path)
@@ -778,7 +753,7 @@ def main():
     analyze(parsed_ast)
 
     output_file = f"{FileHandler.extract_filename_without_extension(slice_path)}.output.json"
-    FileHandler.save(output_file, results)
+    FileHandler.save(output_file, vulnerabilities.to_json())
 
 if __name__ == "__main__":
     main()
