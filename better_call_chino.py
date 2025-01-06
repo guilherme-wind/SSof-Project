@@ -157,6 +157,11 @@ class Taint:
                 unsanitized_flows = "no"
             sanitized_flows += f"{branch}, "
         return f"Vulnerability: {vulnerability}, Source: [{source}, {line}], Unsanitized flows: {unsanitized_flows}"
+    
+    def __eq__(self, value):
+        if not isinstance(value, Taint):
+            return False
+        return self.source == value.source and self.line == value.line and self.pattern == value.pattern
 
     def get_pattern(self) -> Pattern:
         return self.pattern
@@ -368,6 +373,15 @@ def taints_not_in_patterns(taints: List[Taint], patterns: List[Pattern]) -> List
         if taint.get_pattern() not in patterns:
             results.append(taint)
     return results
+
+def add_taint_to_list(taint: Taint, taints: List[Taint]) -> List[Taint]:
+    """
+    Adds a taint to a list of taints. If the taint is already
+    present in the list, it won't be added.
+    """
+    if taint not in taints:
+        taints.append(taint)
+    return taints
 # =====================================================================
 
 
@@ -487,9 +501,12 @@ def call_expr(node, taint: list) -> List[Variable]:
             # Create new taint
             new_taint = Taint(arg.get_name(), current_line, source)
             new_taint.add_new_branch()
-            aux_taint_list.append(new_taint)
-        list_merge(aux_taint_list, arg.get_all_taints())
+            # aux_taint_list.append(new_taint)
+            return_variable.merge_taints([new_taint])
+        # list_merge(aux_taint_list, arg.get_all_taints())
+        return_variable.merge_taints(arg.get_all_taints())
     
+    aux_taint_list = return_variable.get_all_taints()
 
     for callee in callees:
         # If the function is a sink
@@ -522,7 +539,8 @@ def call_expr(node, taint: list) -> List[Variable]:
             for source in source_patterns:
                 new_taint = Taint(callee.get_name(), current_line, source)
                 new_taint.add_new_branch()
-                aux_taint_list.append(new_taint)
+                # aux_taint_list.append(new_taint)
+                return_variable.merge_taints([new_taint])
         
         # If the callee is not the last element of the callees
         # which means that it's not the function, but instead
@@ -531,7 +549,7 @@ def call_expr(node, taint: list) -> List[Variable]:
             # Merge the taints of the callee
             list_merge(aux_taint_list, callee.get_all_taints())
 
-    return_variable.merge_taints(aux_taint_list)
+    # return_variable.merge_taints(aux_taint_list)
     
     return [return_variable]
 
@@ -705,10 +723,10 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
-    slice_path = "./Examples/3-expr/3c-expr-attributes.js"
-    patterns_path = "./Examples/3-expr/3c-expr-attributes.patterns.json"
+    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
