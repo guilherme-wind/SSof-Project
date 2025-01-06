@@ -482,9 +482,14 @@ def call_expr(node, taint: list) -> List[Variable]:
                 new_taint.add_new_branch()
                 aux_taint_list.append(new_taint)
         
-        # Else, merge the taints of the callee
-        if sink_patterns == [] and sanitizer_patterns == [] and source_patterns == []:
+        # If the callee is not the last element of the callees
+        if callee != callees[-1]:
+            # Merge the taints of the callee
             list_merge(aux_taint_list, callee.get_all_taints())
+        
+        # # Else, merge the taints of the callee
+        # if sink_patterns == [] and sanitizer_patterns == [] and source_patterns == []:
+        #     list_merge(aux_taint_list, callee.get_all_taints())
 
     return_variable.merge_taints(aux_taint_list)
     
