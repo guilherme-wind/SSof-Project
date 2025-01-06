@@ -397,7 +397,7 @@ def add_taint_to_list(to_add_taint: Taint, taints: List[Taint]):
     for t in taints:
         if t == to_add_taint:
             for branch in to_add_taint.get_branches():
-                if branch not in t.get_branches():
+                if t.get_branches() == [] or branch not in t.get_branches():
                     t.add_branch(branch)
 
 def merge_taint_lists(list1: List[Taint], list_to_be_merged: List[Taint]):
@@ -489,7 +489,9 @@ def identifier(node, tainted: list) -> List[Variable]:
     current_line = node['loc']['start']['line']
     var = Variable(node['name'], current_line)
     for pattern in patternlist.patterns:
-        var.add_new_taint(node['name'], current_line, pattern)
+        taint = Taint(node['name'], current_line, pattern)
+        taint.add_new_branch()
+        var.add_taint(taint)
     return [var]
 
 def member_expr(node, taint: list) -> List[Variable]:
