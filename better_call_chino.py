@@ -374,14 +374,19 @@ def taints_not_in_patterns(taints: List[Taint], patterns: List[Pattern]) -> List
             results.append(taint)
     return results
 
-def add_taint_to_list(taint: Taint, taints: List[Taint]) -> List[Taint]:
+def add_taint_to_list(to_add_taint: Taint, taints: List[Taint]):
     """
     Adds a taint to a list of taints. If the taint is already
-    present in the list, it won't be added.
+    present in the list, their branches will be merged.
     """
-    if taint not in taints:
-        taints.append(taint)
-    return taints
+    if to_add_taint not in taints:
+        taints.append(to_add_taint)
+    
+    for t in taints:
+        if t == to_add_taint:
+            for branch in to_add_taint.get_branches():
+                if branch not in t.get_branches():
+                    t.add_branch(branch)
 # =====================================================================
 
 
@@ -581,7 +586,7 @@ def assignment_expr(node, taint: list) -> List[Variable]:
             # Create new taint
             new_taint = Taint(right.get_name(), current_line, source)
             new_taint.add_new_branch()
-            right_taint_list.append(new_taint)
+            add_taint_to_list(new_taint, right_taint_list)
 
     for left in result_left:
         # If the left side is a sink
@@ -640,7 +645,7 @@ def binary_expr(node, taint: list) -> List[Variable]:
         for source in source_patterns:
             new_taint = Taint(left.get_name(), current_line, source)
             new_taint.add_new_branch()
-            aux_taint_list.append(new_taint)
+            add_taint_to_list(new_taint, aux_taint_list)
     
     for right in result_right:
         list_merge(aux_taint_list, right.get_all_taints())
@@ -648,7 +653,7 @@ def binary_expr(node, taint: list) -> List[Variable]:
         for source in source_patterns:
             new_taint = Taint(right.get_name(), current_line, source)
             new_taint.add_new_branch()
-            aux_taint_list.append(new_taint)
+            add_taint_to_list(new_taint, aux_taint_list)
     
     return_variable.merge_taints(aux_taint_list)
  
