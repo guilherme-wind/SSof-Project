@@ -7,7 +7,7 @@ from typing import List, Any, Dict, Optional, Tuple, overload
 
 results = []
 vulnerabilities_counter = 1
-vulnerabilities_name = ""
+vulnerabilities_name = []
     
 class Pattern:
     def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
@@ -506,9 +506,16 @@ def call_expr(node, taint: list) -> List[Variable]:
             for taint in sinkable_taints:
                 # Register the vulnerability
                 vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
-                if vulnerabilities_name != taint.get_pattern().get_name():
-                    vulnerabilities_name = taint.get_pattern().get_name()
+                for i, (name, count) in enumerate(vulnerabilities_name):
+                    if name == taint.get_pattern().get_name():
+                        # Update the counter if the name exists
+                        vulnerabilities_name[i] = (name, count + 1)
+                        vulnerabilities_counter = count + 1
+                        break
+                else:
+                    vulnerabilities_name.append((taint.get_pattern().get_name(), 1))
                     vulnerabilities_counter = 1
+                    
                 results.append({
                     "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
                     "source": [taint.source, taint.line],
@@ -595,8 +602,14 @@ def assignment_expr(node, taint: list) -> List[Variable]:
             sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
             for taint in sinkable_taints:
                 vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
-                if vulnerabilities_name != taint.get_pattern().get_name():
-                    vulnerabilities_name = taint.get_pattern().get_name()
+                for i, (name, count) in enumerate(vulnerabilities_name):
+                    if name == taint.get_pattern().get_name():
+                        # Update the counter if the name exists
+                        vulnerabilities_name[i] = (name, count + 1)
+                        vulnerabilities_counter = count + 1
+                        break
+                else:
+                    vulnerabilities_name.append((taint.get_pattern().get_name(), 1))
                     vulnerabilities_counter = 1
                 results.append({
                     "vulnerability": f"{taint.get_pattern().get_name()}_{vulnerabilities_counter}",
@@ -739,15 +752,15 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    #slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    #patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
     #slice_path = "./Examples/3-expr/3c-expr-attributes.js"
     #patterns_path = "./Examples/3-expr/3c-expr-attributes.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
     
-    #slice_path = sys.argv[1]
-    #patterns_path = sys.argv[2]
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
