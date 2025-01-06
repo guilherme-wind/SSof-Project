@@ -417,8 +417,7 @@ def member_expr(node, taint: list) -> List[Variable]:
     Converts a member expression to a list of variables.
     E.g.: a.b.c -> [a, b, c]
     """
-    list: List[Variable] = []
-    list_merge(list, expression(node['object'], []))
+    list: List[Variable] = copy.deepcopy(expression(node['object'], []))
     list_merge(list, expression(node['property'], []))
     return list
 
@@ -482,7 +481,11 @@ def call_expr(node, taint: list) -> List[Variable]:
                 new_taint = Taint(callee.get_name(), current_line, source)
                 new_taint.add_new_branch()
                 aux_taint_list.append(new_taint)
-    
+        
+        # Else, merge the taints of the callee
+        if sink_patterns == [] and sanitizer_patterns == [] and source_patterns == []:
+            list_merge(aux_taint_list, callee.get_all_taints())
+
     return_variable.merge_taints(aux_taint_list)
     
     return [return_variable]
@@ -495,75 +498,125 @@ def assignment_expr(node, taint: list) -> List[Variable]:
     of the left and right side.
     """
     # list of variables on the left side
-    result_left: List[Variable] = expression(node['left'], [])
+    result_left: List[Variable] = copy.deepcopy(expression(node['left'], []))
 
     # list of variables on the right side
-    result_right: List[Variable] = expression(node['right'], [])
+    result_right: List[Variable] = copy.deepcopy(expression(node['right'], []))
 
     current_line = node['loc']['start']['line']
-    
+
+    return_variable: Variable = Variable("", current_line)
+    right_taint_list: List[Taint] = []
+    left_taint_list: List[Taint] = []
+
+    for right in result_right:
+        # If the right side is tainted
+        list_merge(right_taint_list, right.get_all_taints())
+        # If the right side is a source
+        source_patterns = patternlist.is_in_source(right.get_name())
+        for source in source_patterns:
+            # Create new taint
+            new_taint = Taint(right.get_name(), current_line, source)
+            new_taint.add_new_branch()
+            right_taint_list.append(new_taint)
+
     for left in result_left:
         # If the left side is a sink
         sink_patterns = patternlist.is_in_sink(left.get_name())
         if sink_patterns != []:
-            # Iterate over the right side
-            for right in result_right:
-                # If the right side is tainted
-                for taint in right.get_all_taints():
-                    # return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
-                    if taint.get_pattern() in sink_patterns:
-                        print({
-                            "vulnerability": taint.get_pattern().get_name(),
-                            "source": [taint.source, taint.line],
-                            "sink": [left.get_name(), current_line],
-                            "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
-                        })
-                # If the right side is a source
-                source_patterns = patternlist.is_in_source(right.get_name())
-                for source in source_patterns:
-                    # return_variable.add_new_taint(right.get_name(), current_line, source)
-                    if source in sink_patterns:
-                        print({
-                            "vulnerability": source.get_name(),
-                            "source": [right.get_name(), current_line],
-                            "sink": [left.get_name(), current_line],
-                            "unsanitized_flows": "yes (direct from source)"
-                        })
+            # Filter the taints that can fall into the sink
+            sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
+            for taint in sinkable_taints:
+                print({
+                    "vulnerability": taint.get_pattern().get_name(),
+                    "source": [taint.source, taint.line],
+                    "sink": [left.get_name(), current_line],
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
+                })
         
         # If the left side is an initialized variable
-        if variablelist.is_in_variables(left.get_name()) != None:
-            
+        initialized_var = variablelist.is_in_variables(left.get_name())
+        if initialized_var != None:
             # Merge with the taints of the right side
-            for right in result_right:
-                left.merge_taints(right.get_all_taints())
-            # If the right side is a source, create new taints
-            for right in result_right:
-                left.merge_taints([
-                    Taint(right.get_name(), current_line, pattern) 
-                    for pattern in patternlist.is_in_source(right.get_name())
-                ])
+            left_taint_list = copy.deepcopy(initialized_var.get_all_taints())
+            list_merge(left_taint_list, right_taint_list)
+            initialized_var.merge_taints(right_taint_list)
 
-        # If the left side is an uninitialized variable
         elif left == result_left[-1]:
             # Initialize a new variable ONLY if its the last element
             # of the left side
+            left_taint_list = right_taint_list
+            initialized_var = Variable(left.get_name(), current_line)
+            initialized_var.merge_taints(right_taint_list)
+            variablelist.add_variable(initialized_var)
 
-            new_var = Variable(left.get_name(), current_line)
+    return_variable.merge_taints(left_taint_list)
 
-            # Merge with the taints of the right side
-            for right in result_right:
-                new_var.merge_taints(right.get_all_taints())
+    return [return_variable]
 
-            # If the right side is a source, create new taints
-            for right in result_right:
-                new_var.merge_taints([
-                    Taint(right.get_name(), current_line, pattern) 
-                    for pattern in patternlist.is_in_source(right.get_name())
-                ])
+    # old code
+    # for left in result_left:
+    #     # If the left side is a sink
+    #     sink_patterns = patternlist.is_in_sink(left.get_name())
+    #     if sink_patterns != []:
+    #         # Iterate over the right side
+    #         for right in result_right:
+    #             # If the right side is tainted
+    #             for taint in right.get_all_taints():
+    #                 # return_variable.add_new_taint(taint.source, taint.line, taint.get_pattern())
+    #                 if taint.get_pattern() in sink_patterns:
+    #                     print({
+    #                         "vulnerability": taint.get_pattern().get_name(),
+    #                         "source": [taint.source, taint.line],
+    #                         "sink": [left.get_name(), current_line],
+    #                         "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
+    #                     })
+    #             # If the right side is a source
+    #             source_patterns = patternlist.is_in_source(right.get_name())
+    #             for source in source_patterns:
+    #                 # return_variable.add_new_taint(right.get_name(), current_line, source)
+    #                 if source in sink_patterns:
+    #                     print({
+    #                         "vulnerability": source.get_name(),
+    #                         "source": [right.get_name(), current_line],
+    #                         "sink": [left.get_name(), current_line],
+    #                         "unsanitized_flows": "yes (direct from source)"
+    #                     })
+        
+    #     # If the left side is an initialized variable
+    #     if variablelist.is_in_variables(left.get_name()) != None:
             
-            variablelist.add_variable(new_var)
+    #         # Merge with the taints of the right side
+    #         for right in result_right:
+    #             left.merge_taints(right.get_all_taints())
+    #         # If the right side is a source, create new taints
+    #         for right in result_right:
+    #             left.merge_taints([
+    #                 Taint(right.get_name(), current_line, pattern) 
+    #                 for pattern in patternlist.is_in_source(right.get_name())
+    #             ])
+
+    #     # If the left side is an uninitialized variable
+    #     elif left == result_left[-1]:
+    #         # Initialize a new variable ONLY if its the last element
+    #         # of the left side
+
+    #         new_var = Variable(left.get_name(), current_line)
+
+    #         # Merge with the taints of the right side
+    #         for right in result_right:
+    #             new_var.merge_taints(right.get_all_taints())
+
+    #         # If the right side is a source, create new taints
+    #         for right in result_right:
+    #             new_var.merge_taints([
+    #                 Taint(right.get_name(), current_line, pattern) 
+    #                 for pattern in patternlist.is_in_source(right.get_name())
+    #             ])
             
-    return []
+    #         variablelist.add_variable(new_var)
+            
+    # return []
 
 
 def binary_expr(node, taint: list) -> List[Variable]:
