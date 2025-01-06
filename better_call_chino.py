@@ -308,18 +308,24 @@ class Vulnerability:
     
     def to_json(self) -> Dict[str, Any]:
         vuln_name = self.taint.get_pattern().get_name() + "_" + str(self.counter)
-        is_unsanitzed: bool = True
+        is_unsanitized: bool = False
         branches: list = []
+        taint_branches = self.taint.get_branches()
+        # If there are no branches
+        if taint_branches == []:
+            is_unsanitized = True
         for branch in self.taint.get_branches():
             sanitizer = branch.get_sanitizers()
+            # If there are sanitizers
             if sanitizer != []:
                 branches.append(sanitizer)
-                is_unsanitzed = False
+            else:
+                is_unsanitized = True
         return {
             "vulnerability": vuln_name,
             "source": [self.taint.source, self.taint.line],
             "sink": [self.sink, self.line],
-            "unsanitized_flows": "yes" if is_unsanitzed else "no",
+            "unsanitized_flows": "yes" if is_unsanitized else "no",
             "sanitized_flows": branches,
             "implicit": "yes" if self.implicit else "no"
         }
@@ -393,6 +399,14 @@ def add_taint_to_list(to_add_taint: Taint, taints: List[Taint]):
             for branch in to_add_taint.get_branches():
                 if branch not in t.get_branches():
                     t.add_branch(branch)
+
+def merge_taint_lists(list1: List[Taint], list_to_be_merged: List[Taint]):
+    """
+    Merges two lists of taints into one. If a taint is present
+    in both lists, their branches will be merged.
+    """
+    for taint in list_to_be_merged:
+        add_taint_to_list(taint, list1)
 # =====================================================================
 
 
@@ -435,7 +449,7 @@ def statement(node: List[Dict[str, Any]]):
 
 def expression(node: List[Dict[str, Any]], tainted: list) -> List[Variable]:
     if node["type"] == 'UnaryExpression':
-        expression(node["argument"], tainted)
+        return expression(node["argument"], tainted)
 
     elif node["type"] == 'BinaryExpression':
         return binary_expr(node, tainted)
@@ -506,18 +520,15 @@ def call_expr(node, taint: list) -> List[Variable]:
     
     # Add all existing taints and new taints to the list
     for arg in arguments:
+        merge_taint_lists(aux_taint_list, arg.get_all_taints())
         # If the argument is a source
         source_patterns = patternlist.is_in_source(arg.get_name())
         for source in source_patterns:
             # Create new taint
             new_taint = Taint(arg.get_name(), current_line, source)
             new_taint.add_new_branch()
-            # aux_taint_list.append(new_taint)
-            return_variable.merge_taints([new_taint])
-        # list_merge(aux_taint_list, arg.get_all_taints())
-        return_variable.merge_taints(arg.get_all_taints())
+            add_taint_to_list(new_taint, aux_taint_list)
     
-    aux_taint_list = return_variable.get_all_taints()
 
     for callee in callees:
         # If the function is a sink
@@ -550,8 +561,7 @@ def call_expr(node, taint: list) -> List[Variable]:
             for source in source_patterns:
                 new_taint = Taint(callee.get_name(), current_line, source)
                 new_taint.add_new_branch()
-                # aux_taint_list.append(new_taint)
-                return_variable.merge_taints([new_taint])
+                add_taint_to_list(new_taint, aux_taint_list)
         
         # If the callee is not the last element of the callees
         # which means that it's not the function, but instead
@@ -560,7 +570,7 @@ def call_expr(node, taint: list) -> List[Variable]:
             # Merge the taints of the callee
             list_merge(aux_taint_list, callee.get_all_taints())
 
-    # return_variable.merge_taints(aux_taint_list)
+    return_variable.merge_taints(aux_taint_list)
     
     return [return_variable]
 
@@ -734,10 +744,10 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
-    slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
-    patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
+    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
+    # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
