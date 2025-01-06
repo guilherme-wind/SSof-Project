@@ -293,7 +293,47 @@ class VariableList:
         return None
 # end class VariableList
 
+class Vulnerability:
+    def __init__(self, taint: Taint, counter: int, sink: str, line: int):
+        self.counter = counter
+        self.taint = taint
+        self.sink = sink
+        self.line = line
+    
+    def to_json(self) -> Dict[str, Any]:
+        vuln_name = self.taint.get_pattern().get_name() + "_" + str(self.counter)
+        is_unsanitzed: bool = True
+        branches: list = []
+        for branch in self.taint.get_branches():
+            sanitizer = branch.get_sanitizers()
+            if sanitizer != []:
+                branches.append(sanitizer)
+                is_unsanitzed = False
+        return {
+            "vulnerability": vuln_name,
+            "source": [self.taint.source, self.taint.line],
+            "sink": [self.sink, self.line],
+            "unsanitized_flows": "yes" if is_unsanitzed else "no",
+            "sanitized_flows": branches,
+            "implicit": "Not implemented"
+        }
+# end class Vulnerability
 
+class VulnerabilityList:
+    def __init__(self):
+        self.vulnerabilities: List[Vulnerability] = []
+        self.counters = dict()
+    
+    def add_vulnerability(self, taint: Taint, sink: str, line: int):
+        if taint.get_pattern().get_name() not in self.counters:
+            self.counters[taint.get_pattern().get_name()] = 0
+        self.counters[taint.get_pattern().get_name()] += 1
+        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line))
+    
+    def to_json(self) -> List[Dict[str, Any]]:
+        return [vuln.to_json() for vuln in self.vulnerabilities]
+
+# ========================= Utility functions =========================
 def list_copy(list: list) -> list:
     """
     Returns a deep copy of a list.
@@ -328,6 +368,7 @@ def taints_not_in_patterns(taints: List[Taint], patterns: List[Pattern]) -> List
         if taint.get_pattern() not in patterns:
             results.append(taint)
     return results
+# =====================================================================
 
 
 def analyze(node):
@@ -427,7 +468,7 @@ def call_expr(node, taint: list) -> List[Variable]:
     that combines the characteristics of the callee and the
     arguments.
     """
-    callees: List[Variable] = expression(node['callee'], [])
+    callees: List[Variable] = copy.deepcopy(expression(node['callee'], []))
     arguments: List[Variable] = []
     for arg in node['arguments']:
         list_merge(arguments, copy.deepcopy(expression(arg, [])))
@@ -458,6 +499,7 @@ def call_expr(node, taint: list) -> List[Variable]:
             sinkable_taints = taints_in_patterns(aux_taint_list, sink_patterns)
             for taint in sinkable_taints:
                 # Register the vulnerability
+                vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
                 print({
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
@@ -530,6 +572,7 @@ def assignment_expr(node, taint: list) -> List[Variable]:
             # Filter the taints that can fall into the sink
             sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
             for taint in sinkable_taints:
+                vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
                 print({
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
@@ -657,7 +700,7 @@ class FileHandler:
 
 patternlist: PatternList
 variablelist: VariableList = VariableList()
-vulnerabilities: List[str] = []
+vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
@@ -677,6 +720,9 @@ def main():
     patternlist = PatternList(raw_patterns)
 
     analyze(parsed_ast)
+
+    output_file = f"{FileHandler.extract_filename_without_extension(slice_path)}.output.json"
+    FileHandler.save(output_file, vulnerabilities.to_json())
 
 if __name__ == "__main__":
     main()
