@@ -297,10 +297,6 @@ class VariableList:
                 return variable
         return None
 # end class VariableList
-class Branch:
-    def __init__(self,implicit: bool = False, initializedVars : List[Variable] = []):
-        self.implicit = implicit
-        self.initializedVars : List[Variable] = initializedVars
 
 class Vulnerability:
     def __init__(self, taint: Taint, counter: int, sink: str, line: int, implicit: bool):
@@ -351,8 +347,48 @@ class VulnerabilityList:
 # end class VulnerabilityList
 
 class Branch:
-    def __init__(self):
-        pass
+    def __init__(self, initialized_vars: VariableList, guard_taints: List[Taint], is_implicit: bool):
+        self.initialized_vars = initialized_vars
+        self.guard_taints = guard_taints
+        self.is_implicit = is_implicit
+
+    def add_initialized_variable(self, variable: Variable):
+        self.initialized_vars.add_variable(variable)
+
+    def add_guard_taint(self, taint: Taint):
+        self.guard_taints.append(taint)
+
+    def get_initialized_variables(self) -> VariableList:
+        return self.initialized_vars
+
+    def get_guard_taints(self) -> List[Taint]:
+        return self.guard_taints
+
+    def get_is_implicit(self) -> bool:
+        return self.is_implicit
+
+    def set_implicit(self, is_implicit: bool):
+        self.is_implicit = is_implicit
+
+    def merge_branches(self, branches: List[Branch]):
+        for branch in branches:
+            # Merge initialized variables
+            for variable in branch.get_initialized_variables().variables:
+                existing_variable = self.initialized_vars.is_in_variables(variable.get_name())
+                if existing_variable is None:
+                    self.initialized_vars.add_variable(variable.copy())
+                else:
+                    # Merge taints if the variable already exists
+                    existing_variable.merge_taints(variable.get_all_taints())
+
+            # Merge guard taints
+            for taint in branch.get_guard_taints():
+                if taint not in self.guard_taints:
+                    self.guard_taints.append(taint)
+
+            # Update implicit property if any branch is implicit
+            if branch.get_is_implicit():
+                self.is_implicit = True
 
 # ========================= Utility functions =========================
 def list_copy(list: list) -> list:
@@ -784,12 +820,12 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    #slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    #patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
     # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
-    slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
-    patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    #slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    #patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
