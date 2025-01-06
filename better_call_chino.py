@@ -299,11 +299,12 @@ class VariableList:
 # end class VariableList
 
 class Vulnerability:
-    def __init__(self, taint: Taint, counter: int, sink: str, line: int):
+    def __init__(self, taint: Taint, counter: int, sink: str, line: int, implicit: bool):
         self.counter = counter
         self.taint = taint
         self.sink = sink
         self.line = line
+        self.implicit = implicit
     
     def to_json(self) -> Dict[str, Any]:
         vuln_name = self.taint.get_pattern().get_name() + "_" + str(self.counter)
@@ -320,7 +321,7 @@ class Vulnerability:
             "sink": [self.sink, self.line],
             "unsanitized_flows": "yes" if is_unsanitzed else "no",
             "sanitized_flows": branches,
-            "implicit": "Not implemented"
+            "implicit": "yes" if self.implicit else "no"
         }
 # end class Vulnerability
 
@@ -329,14 +330,19 @@ class VulnerabilityList:
         self.vulnerabilities: List[Vulnerability] = []
         self.counters = dict()
     
-    def add_vulnerability(self, taint: Taint, sink: str, line: int):
+    def add_vulnerability(self, taint: Taint, sink: str, line: int, implicit: bool = False):
         if taint.get_pattern().get_name() not in self.counters:
             self.counters[taint.get_pattern().get_name()] = 0
         self.counters[taint.get_pattern().get_name()] += 1
-        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line))
+        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line, implicit))
     
     def to_json(self) -> List[Dict[str, Any]]:
         return [vuln.to_json() for vuln in self.vulnerabilities]
+# end class VulnerabilityList
+
+class Branch:
+    def __init__(self):
+        pass
 
 # ========================= Utility functions =========================
 def list_copy(list: list) -> list:
@@ -728,8 +734,10 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
+    patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
