@@ -558,10 +558,8 @@ def statement(node: List[Dict[str, Any]], context: Branch) -> List[Branch]:
     elif node["type"] == 'IfStatement':
         return if_statem(node, context)
 
-    elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
-        expression(node["test"], context)
-        statement(node["body"], context)
-        return []
+    elif node["type"] == 'WhileStatement' or node["type"] == 'DoWhileStatement':
+        return while_statem(node, context)
 
     else:
         return []
@@ -839,10 +837,19 @@ def if_statem(node, context: Branch):
 
     return consequent_branches
 
+def while_statem(node, context: Branch):
+    # Analyze the test condition and obtain the taints
+    guard_var = expression(node["test"], context)
 
-
-
-
+    # Create a copy of current context for the body branch
+    body_context = copy.deepcopy(context)
+    for var in guard_var:
+        for taint in var.get_all_taints():
+            body_context.add_guard_taint(copy.deepcopy(taint))
+    
+    body_branches = statement(node["body"], body_context)
+    
+    return body_branches
 
 
 
