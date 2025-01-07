@@ -254,6 +254,11 @@ class Variable:
         self.initline = line
         self.taint: List[Taint] = []
     
+    def __eq__(self, value):
+        if not isinstance(value, Variable):
+            return False
+        return self.name == value.name and self.initline == value.initline and self.taint == value.taint
+    
     def get_name(self) -> str:
         return self.name
     
