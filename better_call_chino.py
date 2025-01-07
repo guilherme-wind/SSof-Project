@@ -863,29 +863,24 @@ def if_statem(node, context: Branch):
     
     consequent_branches = statement(node["consequent"], consequent_context)
 
+    consequent_branches.insert(0, context)
+
+    # If there is not 'else' clause
     if "alternate" not in node:
-        # The original branch is the 'else'
-        consequent_branches.insert(0, context)
         return consequent_branches
     
     # Create a copy of current context for the alternate branch
-    alternate_context = copy.deepcopy(context)
-    for var in guard_var:
-        for taint in var.get_all_taints():
-            alternate_context.add_guard_taint(copy.deepcopy(taint))
+    # alternate_context = copy.deepcopy(context)
+    # for var in guard_var:
+    #     for taint in var.get_all_taints():
+    #         alternate_context.add_guard_taint(copy.deepcopy(taint))
 
-    alternate_branches = statement(node["alternate"], alternate_context)
+    alternate_branches = statement(node["alternate"], context)
 
-    # Mark implicit flows to variables in branches
-    for branch in consequent_branches + alternate_branches:
-        for variable in branch.get_initialized_variables().variables:
-            for taint in guard_var[0].get_all_taints():  # Implicitly taint with guard variable
-                taint.implicit = True
-                variable.add_taint(taint.copy())
     # Merge the branches
     list_merge(consequent_branches, alternate_branches)
 
-    return consequent_branches + alternate_branches
+    return consequent_branches
 
 
 def while_statem(node, context: Branch):
@@ -968,9 +963,9 @@ variablelist: VariableList = VariableList()
 vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
-    if len(sys.argv) != 3:
-        print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
-        sys.exit(1)
+    # if len(sys.argv) != 3:
+    #     print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
+    #     sys.exit(1)
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
     # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
@@ -979,8 +974,8 @@ def main():
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
-    slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
-    patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
+    slice_path = "./Examples/5-loops/5b-loops-unfolding.js"
+    patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
     # slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
 
