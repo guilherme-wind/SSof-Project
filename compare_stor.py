@@ -81,6 +81,7 @@ def main():
                     comparison_results.append(result)
                     break  # Break the loop once the match is found
 
+    compare = subprocess.run(['python', 'compare_all.py'], capture_output=True, text=True)
 
 if __name__ == "__main__":
     main()
