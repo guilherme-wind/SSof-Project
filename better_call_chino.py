@@ -7,11 +7,12 @@ from typing import List, Any, Dict, Optional, Tuple, overload
 
 
 class Pattern:
-    def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str]):
+    def __init__(self, name: str, source: List[str], sink: List[str], sanitizer: List[str], implicit: str):
         self.name = name
         self.source = source
         self.sink = sink
         self.sanitizer = sanitizer
+        self.implicit = False if implicit == "no" else True
 
     def __str__(self):
         return f"Vulnerability: {self.name}\nSource: {self.source}\nSink: {self.sink}\n"
@@ -29,6 +30,9 @@ class Pattern:
     
     def get_sink(self) -> list:
         return self.sink
+    
+    def is_implicit(self) -> bool:
+        return self.implicit
     
     def is_in_sink(self, sink: str) -> bool:
         return sink in self.sink
@@ -49,7 +53,8 @@ class PatternList:
                     pattern["vulnerability"], 
                     pattern["sources"], 
                     pattern["sinks"],
-                    pattern["sanitizers"]
+                    pattern["sanitizers"],
+                    pattern["implicit"]
                     )
                 )
     
@@ -86,6 +91,16 @@ class PatternList:
         results: List[Pattern] = []
         for pattern in self.patterns:
             if pattern.is_in_sanitizer(var):
+                results.append(pattern)
+        return results
+    
+    def is_implicit(self) -> List[Pattern]:
+        """
+        Returns a list of patterns that are implicit.
+        """
+        results: List[Pattern] = []
+        for pattern in self.patterns:
+            if pattern.is_implicit():
                 results.append(pattern)
         return results
     
@@ -347,6 +362,10 @@ class VulnerabilityList:
 # end class VulnerabilityList
 
 class Branch:
+    """
+    Represents a branch in the code, i.e., a possible path that the code
+    can take.
+    """
     def __init__(self, initialized_vars: VariableList, guard_taints: List[Taint], is_implicit: bool):
         self.initialized_vars = initialized_vars
         self.guard_taints = guard_taints
@@ -356,7 +375,7 @@ class Branch:
         self.initialized_vars.add_variable(variable)
 
     def add_guard_taint(self, taint: Taint):
-        self.guard_taints.append(taint)
+        add_taint_to_list(taint, self.guard_taints)
 
     def get_initialized_variables(self) -> VariableList:
         return self.initialized_vars
@@ -370,7 +389,7 @@ class Branch:
     def set_implicit(self, is_implicit: bool):
         self.is_implicit = is_implicit
 
-    def merge_branches(self, branches: List[Branch]):
+    def merge_branches(self, branches: List['Branch']):
         for branch in branches:
             # Merge initialized variables
             for variable in branch.get_initialized_variables().variables:
@@ -383,12 +402,14 @@ class Branch:
 
             # Merge guard taints
             for taint in branch.get_guard_taints():
-                if taint not in self.guard_taints:
-                    self.guard_taints.append(taint)
+                add_taint_to_list(taint, self.guard_taints)
+                # if taint not in self.guard_taints:
+                #     self.guard_taints.append(taint)
 
             # Update implicit property if any branch is implicit
             if branch.get_is_implicit():
                 self.is_implicit = True
+# end class Branch
 
 # ========================= Utility functions =========================
 def list_copy(list: list) -> list:
@@ -454,63 +475,64 @@ def analyze(node):
     if not isinstance(node, dict) or "type" not in node:
         return
     
+    initial_context = Branch(VariableList(), [], False)
+    contexts = [initial_context]
+    aux_list = []
+    
     if node["type"] == 'Program':
         for child in node["body"]:
-            statement(child, variablelist)
+            for context in contexts:
+                list_merge(aux_list, statement(child, context))
+            contexts = aux_list
+            aux_list = []
 
     return
 
 
-def statement(node: List[Dict[str, Any]], context: Optional[VariableList] = None):
-    if context is None:
-        context = VariableList()
-
+def statement(node: List[Dict[str, Any]], context: Branch) -> List[Branch]:
     if node["type"] == 'ExpressionStatement':
-        expression(node["expression"], [])
+        expression(node["expression"], context)
+        return [context]
 
     elif node["type"] == 'BlockStatement':
         for child in node["body"]:
-            statement(child)
+            statement(child, context)
+        return [context]
 
     elif node["type"] == 'IfStatement':
-        analyzeIf(node, context)
-        #expression(node["test"], [])
-        #statement(node["consequent"])
-        #if "alternate" in node:
-         #   statement(node["alternate"])
+        return analyzeIf(node, context)
 
     elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
-        # TODO
-        expression(node["test"], [])
+        expression(node["test"], context)
         statement(node["body"], context)
-        return
+        return []
 
     else:
-        return
+        return []
 
 
 
-def expression(node: List[Dict[str, Any]], tainted: list) -> List[Variable]:
+def expression(node: List[Dict[str, Any]], context: Branch) -> List[Variable]:
     if node["type"] == 'UnaryExpression':
-        return expression(node["argument"], tainted)
+        return expression(node["argument"], context)
 
     elif node["type"] == 'BinaryExpression':
-        return binary_expr(node, tainted)
+        return binary_expr(node, context)
     
     elif node["type"] == 'AssignmentExpression':
-        return assignment_expr(node, tainted)
+        return assignment_expr(node, context)
     
     elif node["type"] == 'LogicalExpression':
-        return
+        return logical_expr(node, context)
     
     elif node["type"] == 'MemberExpression':
-        return member_expr(node, tainted)
+        return member_expr(node, context)
     
     elif node["type"] == 'CallExpression':
-        return call_expr(node, tainted)
+        return call_expr(node, context)
     
     elif node["type"] == 'Identifier':
-        return identifier(node, tainted)
+        return identifier(node, context)
     
     elif node["type"] == 'Literal':
         return []
@@ -518,14 +540,14 @@ def expression(node: List[Dict[str, Any]], tainted: list) -> List[Variable]:
     else:
         return
     
-def identifier(node, tainted: list) -> List[Variable]:
+def identifier(node, context: Branch) -> List[Variable]:
     """
     Returns a variable object from the node.
     If the variable is not initialized, it will 
     have all the vulnerabilities.
     """
     # If the identifier is an initialized variable
-    var = variablelist.is_in_variables(node['name'])
+    var = context.initialized_vars.is_in_variables(node['name'])
     if var != None:
         return [var]
     # If the identifier is not initialized
@@ -537,25 +559,25 @@ def identifier(node, tainted: list) -> List[Variable]:
         var.add_taint(taint)
     return [var]
 
-def member_expr(node, taint: list) -> List[Variable]:
+def member_expr(node, context: Branch) -> List[Variable]:
     """
     Converts a member expression to a list of variables.
     E.g.: a.b.c -> [a, b, c]
     """
-    list: List[Variable] = copy.deepcopy(expression(node['object'], []))
-    list_merge(list, expression(node['property'], []))
+    list: List[Variable] = copy.deepcopy(expression(node['object'], context))
+    list_merge(list, expression(node['property'], context))
     return list
 
-def call_expr(node, taint: list) -> List[Variable]:
+def call_expr(node, context: Branch) -> List[Variable]:
     """
     Evaluates a call expression and returns a single variable
     that combines the characteristics of the callee and the
     arguments.
     """
-    callees: List[Variable] = copy.deepcopy(expression(node['callee'], []))
+    callees: List[Variable] = copy.deepcopy(expression(node['callee'], context))
     arguments: List[Variable] = []
     for arg in node['arguments']:
-        list_merge(arguments, copy.deepcopy(expression(arg, [])))
+        list_merge(arguments, copy.deepcopy(expression(arg, context)))
 
     current_line = node['loc']['start']['line']
     # Declare a variable that will collect all the taints
@@ -620,17 +642,17 @@ def call_expr(node, taint: list) -> List[Variable]:
     return [return_variable]
 
 
-def assignment_expr(node, taint: list) -> List[Variable]:
+def assignment_expr(node, context: Branch) -> List[Variable]:
     """
     Evaluates an assignment expresstion and returns a 
     single variable that combines the characteristics
     of the left and right side.
     """
     # list of variables on the left side
-    result_left: List[Variable] = copy.deepcopy(expression(node['left'], []))
+    result_left: List[Variable] = copy.deepcopy(expression(node['left'], context))
 
     # list of variables on the right side
-    result_right: List[Variable] = copy.deepcopy(expression(node['right'], []))
+    result_right: List[Variable] = copy.deepcopy(expression(node['right'], context))
 
     current_line = node['loc']['start']['line']
 
@@ -665,7 +687,7 @@ def assignment_expr(node, taint: list) -> List[Variable]:
                 })
         
         # If the left side is an initialized variable
-        initialized_var = variablelist.is_in_variables(left.get_name())
+        initialized_var = context.initialized_vars.is_in_variables(left.get_name())
         if initialized_var != None:
             # Merge with the taints of the right side
             left_taint_list = copy.deepcopy(initialized_var.get_all_taints())
@@ -678,20 +700,20 @@ def assignment_expr(node, taint: list) -> List[Variable]:
             left_taint_list = right_taint_list
             initialized_var = Variable(left.get_name(), current_line)
             initialized_var.merge_taints(right_taint_list)
-            variablelist.add_variable(initialized_var)
+            context.initialized_vars.add_variable(initialized_var)
 
     return_variable.merge_taints(left_taint_list)
 
     return [return_variable]
 
 
-def binary_expr(node, taint: list) -> List[Variable]:
+def binary_expr(node, context: Branch) -> List[Variable]:
     """
     Evaluates a binary expression and return a single variable
     that combines all the taints from the left and right side.
     """
-    result_left = copy.deepcopy(expression(node['left'], []))
-    result_right = copy.deepcopy(expression(node['right'], []))
+    result_left = copy.deepcopy(expression(node['left'], context))
+    result_right = copy.deepcopy(expression(node['right'], context))
     
     current_line = node['loc']['start']['line']
 
@@ -721,47 +743,45 @@ def binary_expr(node, taint: list) -> List[Variable]:
     return [return_variable]
 
 
-
-def analyzeIf(node, context: Optional[VariableList] = None):
-    if context is None:
-        context = VariableList()  # Initialize to an empty VariableList if None
-
-    variables = context.variables  # Access the 'variables' attribute of VariableList
-
-    # Copy the context for branches
-    consequent_variables = VariableList()
-    consequent_variables.variables = [var.copy() for var in context.variables]
-
-    alternate_variables = VariableList()
-    alternate_variables.variables = [var.copy() for var in context.variables]
-
-    # Analyze the test condition
-    expression(node["test"], variables)
-
-    # Analyze the branches
-    if "consequent" in node:
-        statement(node["consequent"], consequent_variables)
-    if "alternate" in node:
-        statement(node["alternate"], alternate_variables)
-
-    # Merge variables back into the main context
-    for var in context.variables:
-        matching_var_consequent = consequent_variables.is_in_variables(var.name)
-        matching_var_alternate = alternate_variables.is_in_variables(var.name)
-
-        if matching_var_consequent and matching_var_alternate:
-            # Merge taints from both branches
-            var.merge_taints(matching_var_consequent.get_all_taints())
-            var.merge_taints(matching_var_alternate.get_all_taints())
-        elif matching_var_consequent:
-            var.merge_taints(matching_var_consequent.get_all_taints())
-        elif matching_var_alternate:
-            var.merge_taints(matching_var_alternate.get_all_taints())
+def logical_expr(node, context: Branch) -> List[Variable]:
+    """
+    Evaluates a logical expression and returns a single variable
+    that combines the taints of the left and right side.
+    """
+    return binary_expr(node, context)
 
 
+def analyzeIf(node, context: Branch):
 
+    # Analyze the test condition and obtain the taints
+    guard_var = expression(node["test"], context)
 
+    # Create a copy of current context for the consequent branch
+    consequent_context = copy.deepcopy(context)
+    for var in guard_var:
+        for taint in var.get_all_taints():
+            consequent_context.add_guard_taint(copy.deepcopy(taint))
+    
+    consequent_branches = statement(node["consequent"], consequent_context)
 
+    # If there is no 'else' branch
+    if "alternate" not in node:
+        # The original branch is the 'else'
+        consequent_branches.insert(0, context)
+        return consequent_branches
+    
+    # Create a copy of current context for the alternate branch
+    alternate_context = copy.deepcopy(context)
+    for var in guard_var:
+        for taint in var.get_all_taints():
+            alternate_context.add_guard_taint(copy.deepcopy(taint))
+
+    alternate_branches = statement(node["alternate"], alternate_context)
+
+    # Merge the branches
+    list_merge(consequent_branches, alternate_branches)
+
+    return consequent_branches
 
 
 
@@ -776,16 +796,6 @@ def analyzeIf(node, context: Optional[VariableList] = None):
 
 
 
-def load_patterns(patterns: List[Dict[str, Any]]) -> None:
-    for pattern in patterns:
-        patterns.append(
-            Pattern(
-                pattern["vulnerability"], 
-                pattern["sources"], 
-                pattern["sinks"]
-                )
-            )
-        
 
 
 
@@ -820,12 +830,12 @@ vulnerabilities: VulnerabilityList = VulnerabilityList()
 def main():
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
-    slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
-    patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
+    # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
+    # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
     # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
-    #slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
-    #patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
