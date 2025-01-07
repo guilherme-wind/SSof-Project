@@ -890,9 +890,12 @@ def main():
     # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
     # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
-    slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
-    patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
 
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
+    
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
     slice_code: str = FileHandler.load_file(slice_path)

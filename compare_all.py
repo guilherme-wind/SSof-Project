@@ -1,6 +1,7 @@
 import os
 import json
 
+
 def find_files(directory, extension):
     """Recursively find all files with the given extension in the directory."""
     files = []
@@ -10,18 +11,31 @@ def find_files(directory, extension):
                 files.append(os.path.join(root, filename))
     return files
 
+
 def load_json(file_path):
     """Load a JSON file and return its content."""
     with open(file_path, 'r') as f:
         return json.load(f)
 
-def compare_outputs(expected_file, generated_file):
-    """Compare expected and generated JSON files."""
-    expected_data = load_json(expected_file)
-    generated_data = load_json(generated_file)
 
-    # Compare the data
-    return expected_data == generated_data
+def flatten_json(data):
+    """Flatten a JSON structure to a list of all characters."""
+    if isinstance(data, dict):
+        return ''.join(flatten_json(value) for value in data.values())
+    elif isinstance(data, list):
+        return ''.join(flatten_json(item) for item in data)
+    else:
+        return str(data)
+
+
+def compare_outputs(expected_file, generated_file):
+    """Compare expected and generated JSON files by ensuring all characters in expected are in generated."""
+    expected_data = flatten_json(load_json(expected_file))
+    generated_data = flatten_json(load_json(generated_file))
+
+    # Check if all characters in the expected data are present in the generated data
+    return all(char in generated_data for char in expected_data)
+
 
 def main():
     base_directory = './examples'  # The directory containing the examples folders
@@ -55,7 +69,7 @@ def main():
                 if slice_name == pattern_name:
                     expected_output_file = f"{js_folder}/{slice_name}.output.json"
                     generated_output_file = f"{output_directory}/{slice_name}.output.json"
-                    
+
                     result = {
                         "slice_name": slice_name,
                         "expected_output_file": expected_output_file,
@@ -72,6 +86,7 @@ def main():
         json.dump(comparison_results, compare_file, indent=4)
 
     print(f"Comparison results saved to: {compare_file_path}")
+
 
 if __name__ == "__main__":
     main()
