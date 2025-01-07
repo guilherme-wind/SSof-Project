@@ -877,10 +877,44 @@ def if_statem(node, context: Branch):
 
     alternate_branches = statement(node["alternate"], context)
 
-    # Merge the branches
-    list_merge(consequent_branches, alternate_branches)
+    #Merge until everyting converged
+    converged = False
+    while not converged:
+        converged = True  # There will prob be one useless iteration - the last one, where nothing gets merged. but we have to do this to make sure everything gets merged.
 
-    return consequent_branches
+        for branch in consequent_branches + alternate_branches:
+            for variable in branch.get_initialized_variables().variables:
+                for taint in guard_var[0].get_all_taints():
+                    if not any((existing_taint == taint) for existing_taint in variable.get_all_taints()):
+                        taint.implicit = True
+                        variable.add_taint(taint.copy())
+                        converged = False
+
+        list_merge(consequent_branches, alternate_branches)
+
+    return consequent_branches + alternate_branches
+
+    # Mark implicit flows to variables in branches
+   # for branch in consequent_branches + alternate_branches:
+   #     for variable in branch.get_initialized_variables().variables:
+   #         for taint in guard_var[0].get_all_taints():  # Implicitly taint with guard variable
+   #             taint.implicit = True
+   #             variable.add_taint(taint.copy())
+    # Merge the branches
+   # list_merge(consequent_branches, alternate_branches)
+
+    #return consequent_branches + alternate_branches
+
+    # Mark implicit flows to variables in branches
+   # for branch in consequent_branches + alternate_branches:
+   #     for variable in branch.get_initialized_variables().variables:
+   #         for taint in guard_var[0].get_all_taints():  # Implicitly taint with guard variable
+   #             taint.implicit = True
+   #             variable.add_taint(taint.copy())
+    # Merge the branches
+   # list_merge(consequent_branches, alternate_branches)
+
+    #return consequent_branches + alternate_branches
 
 
 def while_statem(node, context: Branch):
