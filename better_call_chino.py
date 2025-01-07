@@ -550,12 +550,13 @@ def statement(node: List[Dict[str, Any]], context: Branch) -> List[Branch]:
         return [context]
 
     elif node["type"] == 'BlockStatement':
+        result = []
         for child in node["body"]:
-            statement(child, context)
-        return [context]
+            list_merge(result, statement(child, context))
+        return result
 
     elif node["type"] == 'IfStatement':
-        return analyzeIf(node, context)
+        return if_statem(node, context)
 
     elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
         expression(node["test"], context)
@@ -806,7 +807,7 @@ def logical_expr(node, context: Branch) -> List[Variable]:
     return binary_expr(node, context)
 
 
-def analyzeIf(node, context: Branch):
+def if_statem(node, context: Branch):
 
     # Analyze the test condition and obtain the taints
     guard_var = expression(node["test"], context)
