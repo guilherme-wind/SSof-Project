@@ -885,7 +885,7 @@ def if_statem(node, context: Branch):
 
 def while_statem(node, context: Branch):
     """
-    Evaluates the while statement, taking into consideration
+    Evaluates the while statement, taking into consideration    
     of the possible execution flows and their consequences:
     - The code inside while won't be executed at all:
         the only branch exists is the original branch.
@@ -979,8 +979,8 @@ def main():
     # slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
 
-    # slice_path = sys.argv[1]
-    # patterns_path = sys.argv[2]
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 

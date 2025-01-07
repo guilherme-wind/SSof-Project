@@ -33,47 +33,5 @@
             ]
         ],
         "implicit": "no"
-    },
-    {
-        "vulnerability": "A_2",
-        "source": [
-            "b",
-            1
-        ],
-        "sink": [
-            "z",
-            10
-        ],
-        "unsanitized_flows": "no",
-        "sanitized_flows": [
-            [
-                [
-                    "s",
-                    4
-                ]
-            ]
-        ],
-        "implicit": "no"
-    },
-    {
-        "vulnerability": "B_2",
-        "source": [
-            "s",
-            4
-        ],
-        "sink": [
-            "q",
-            10
-        ],
-        "unsanitized_flows": "no",
-        "sanitized_flows": [
-            [
-                [
-                    "z",
-                    10
-                ]
-            ]
-        ],
-        "implicit": "no"
     }
 ]
