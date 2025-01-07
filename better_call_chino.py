@@ -890,7 +890,7 @@ def if_statem(node, context: Branch):
 
 def while_statem(node, context: Branch):
     """
-    Evaluates the while statement, taking into consideration
+    Evaluates the while statement, taking into consideration    
     of the possible execution flows and their consequences:
     - The code inside while won't be executed at all:
         the only branch exists is the original branch.
@@ -979,13 +979,13 @@ def main():
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
-    slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
-    patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
+    # slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
+    # patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
     # slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
 
-    # slice_path = sys.argv[1]
-    # patterns_path = sys.argv[2]
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
