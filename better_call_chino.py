@@ -561,6 +561,9 @@ def statement(node: List[Dict[str, Any]], context: Branch) -> List[Branch]:
     elif node["type"] == 'WhileStatement' or node["type"] == 'DoWhileStatement':
         return while_statem(node, context)
 
+    elif node["type"] == '':
+        return expression(node, context)
+    
     else:
         return []
 
@@ -806,11 +809,8 @@ def logical_expr(node, context: Branch) -> List[Variable]:
 
 
 def if_statem(node, context: Branch):
-
-    # Analyze the test condition and obtain the taints
     guard_var = expression(node["test"], context)
 
-    # Create a copy of current context for the consequent branch
     consequent_context = copy.deepcopy(context)
     for var in guard_var:
         for taint in var.get_all_taints():
@@ -818,7 +818,6 @@ def if_statem(node, context: Branch):
     
     consequent_branches = statement(node["consequent"], consequent_context)
 
-    # If there is no 'else' branch
     if "alternate" not in node:
         # The original branch is the 'else'
         consequent_branches.insert(0, context)
@@ -832,10 +831,18 @@ def if_statem(node, context: Branch):
 
     alternate_branches = statement(node["alternate"], alternate_context)
 
+    # Mark implicit flows to variables in branches
+    for branch in consequent_branches + alternate_branches:
+        for variable in branch.get_initialized_variables().variables:
+            for taint in guard_var[0].get_all_taints():  # Implicitly taint with guard variable
+                taint.implicit = True
+                variable.add_taint(taint.copy())
     # Merge the branches
     list_merge(consequent_branches, alternate_branches)
 
-    return consequent_branches
+    return consequent_branches + alternate_branches
+
+
 
 def while_statem(node, context: Branch):
     # Analyze the test condition and obtain the taints
@@ -891,6 +898,9 @@ variablelist: VariableList = VariableList()
 vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
+    if len(sys.argv) != 3:
+        print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
+        sys.exit(1)
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
     # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
@@ -904,6 +914,12 @@ def main():
     patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
+
+    for path in [slice_path, patterns_path]:
+        if not os.path.exists(path):
+            print(f"\033[31mError: File not found -> {path}\033[0m", file=sys.stderr)
+            sys.exit(1)
+
 
     slice_code: str = FileHandler.load_file(slice_path)
     raw_patterns: str = json.loads(FileHandler.load_file(patterns_path))
