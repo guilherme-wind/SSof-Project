@@ -3,7 +3,7 @@ import sys
 import os
 import json
 import esprima
-from typing import List, Any, Dict, Optional, Tuple, overload
+from typing import List, Any, Dict, Optional, Tuple
 
 
 class Pattern:
@@ -21,6 +21,9 @@ class Pattern:
         if not isinstance(value, Pattern):
             return False
         return self.name == value.name
+
+    def __hash__(self):
+        return hash(self.name)
     
     def get_name(self) -> str:
         return self.name
@@ -178,6 +181,9 @@ class Taint:
             return False
         return self.source == value.source and self.line == value.line and self.pattern == value.pattern
 
+    def __hash__(self):
+        return hash((self.source, self.line, self.pattern))
+
     def get_pattern(self) -> Pattern:
         return self.pattern
     
@@ -320,6 +326,11 @@ class Vulnerability:
         self.sink = sink
         self.line = line
         self.implicit = implicit
+
+    def __eq__(self, value):
+        if not isinstance(value, Vulnerability):
+            return False
+        return self.taint == value.taint and self.sink == value.sink and self.line == value.line
     
     def to_json(self) -> Dict[str, Any]:
         vuln_name = self.taint.get_pattern().get_name() + "_" + str(self.counter)
@@ -348,17 +359,61 @@ class Vulnerability:
 
 class VulnerabilityList:
     def __init__(self):
-        self.vulnerabilities: List[Vulnerability] = []
-        self.counters = dict()
+        self.vulnerabilities: Dict[Taint, List[Vulnerability]] = dict()
+        self.counters: Dict[Pattern, int] = dict()
     
     def add_vulnerability(self, taint: Taint, sink: str, line: int, implicit: bool = False):
-        if taint.get_pattern().get_name() not in self.counters:
-            self.counters[taint.get_pattern().get_name()] = 0
-        self.counters[taint.get_pattern().get_name()] += 1
-        self.vulnerabilities.append(Vulnerability(taint, self.counters[taint.get_pattern().get_name()], sink, line, implicit))
+        # If the vulnerability with such pattern doesn't exist yet
+        if taint.get_pattern() not in self.counters:
+            self.counters[taint.get_pattern()] = 1
+            self.vulnerabilities[taint] = [
+                Vulnerability(
+                    taint, 
+                    self.counters[taint.get_pattern()], 
+                    sink, 
+                    line, 
+                    implicit
+                )
+            ]
+            return
+        
+        # If the vulnerability with such pattern exists
+        # Check if the vulnerability with the same taint exists
+        if taint not in self.vulnerabilities:
+            self.counters[taint.get_pattern()] += 1
+            self.vulnerabilities[taint] = [
+                Vulnerability(
+                    taint, 
+                    self.counters[taint.get_pattern()], 
+                    sink, 
+                    line, 
+                    implicit
+                )
+            ]
+            return
+
+        vulnerabilities = self.vulnerabilities[taint]
+        for vuln in vulnerabilities:
+            if vuln.sink == sink and vuln.line == line:
+                return
+
+        self.counters[taint.get_pattern()] += 1
+        vulnerabilities.append(
+            Vulnerability(
+                taint, 
+                self.counters[taint.get_pattern()], 
+                sink, 
+                line, 
+                implicit
+            )
+        )
     
     def to_json(self) -> List[Dict[str, Any]]:
-        return [vuln.to_json() for vuln in self.vulnerabilities]
+        result = []
+        for vuln_list in self.vulnerabilities.values():
+            for vuln in vuln_list:
+                result.append(vuln.to_json())
+        return result
 # end class VulnerabilityList
 
 class Branch:
