@@ -232,6 +232,16 @@ class Taint:
         for branch in self.branches:
             copy.add_branch(branch.copy())
         return copy
+    
+    def merge_branches(self):
+        """
+        Merge the branches with the same sanitizers.
+        """
+        new_branches = []
+        for branch in self.branches:
+            if branch not in new_branches:
+                new_branches.append(branch)
+        self.branches = new_branches
 # end class Taint
 
 class Variable: 
@@ -302,6 +312,11 @@ class Variable:
 class VariableList:
     def __init__(self):
         self.variables: List[Variable] = []
+    
+    def __eq__(self, value):
+        if not isinstance(value, VariableList):
+            return False
+        return self.variables == value.variables
     
     def add_variable(self, variable: Variable):
         self.variables.append(variable)
@@ -425,6 +440,11 @@ class Branch:
         self.initialized_vars = initialized_vars
         self.guard_taints = guard_taints
         self.is_implicit = is_implicit
+    
+    def __eq__(self, value):
+        if not isinstance(value, Branch):
+            return False
+        return self.initialized_vars == value.initialized_vars and self.guard_taints == value.guard_taints
 
     def add_initialized_variable(self, variable: Variable):
         self.initialized_vars.add_variable(variable)
@@ -550,17 +570,23 @@ def statement(node: List[Dict[str, Any]], context: Branch) -> List[Branch]:
         return [context]
 
     elif node["type"] == 'BlockStatement':
-        result = []
+        result = [context]
         for child in node["body"]:
-            list_merge(result, statement(child, context))
+            branches = statement(child, context)
+            # remove the first element of the branche
+            # as it is the original branch
+            branches = branches[1:]
+            list_merge(result, branches)
+            # list_merge(result, statement(child, context))
         return result
 
     elif node["type"] == 'IfStatement':
         return if_statem(node, context)
 
-    elif node["type"] == 'WhileStatement' | node["type"] == 'DoWhileStatement':
-        expression(node["test"], context)
-        statement(node["body"], context)
+    elif node["type"] == 'WhileStatement':
+        return while_statem(node, context)
+    
+    elif node["type"] == 'DoWhileStatement':
         return []
 
     else:
@@ -660,6 +686,7 @@ def call_expr(node, context: Branch) -> List[Variable]:
             # Filter the taints that can fall into the sink
             sinkable_taints = taints_in_patterns(aux_taint_list, sink_patterns)
             for taint in sinkable_taints:
+                taint.merge_branches()
                 # Register the vulnerability
                 vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
                 print({
@@ -734,6 +761,7 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
             # Filter the taints that can fall into the sink
             sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
             for taint in sinkable_taints:
+                taint.merge_branches()
                 vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
                 print({
                     "vulnerability": taint.get_pattern().get_name(),
@@ -808,6 +836,22 @@ def logical_expr(node, context: Branch) -> List[Variable]:
 
 
 def if_statem(node, context: Branch):
+    """
+    Evaluates an if statement, taking into account
+    the possible branches that the code can take.
+    - The execution enters the if:
+        The code inside may generate other branches as
+        it may contain other if or while, these ones 
+        need to be registered.
+
+    - The execution doesn't enter the if:
+        1. There is a 'else' clause, which means that 
+            the branch that doesn't go into if will always
+            pass through 'else', where it can create more
+            branches
+        2. There is no 'else' clause, then the other branch is
+            simply the original branch as no changes will be made
+    """
 
     # Analyze the test condition and obtain the taints
     guard_var = expression(node["test"], context)
@@ -840,8 +884,44 @@ def if_statem(node, context: Branch):
     return consequent_branches
 
 
+def while_statem(node, context: Branch):
+    """
+    Evaluates the while statement, taking into consideration
+    of the possible execution flows and their consequences:
+    - The code inside while won't be executed at all:
+        the only branch exists is the original branch.
 
+    - The code will be executed exactly once:
+        branches resulted from the code in the first execution
+        will be counted.
+    
+    - The code will be executed at least twise:
+        the second execution will be based only on the result of 
+        the first.
+    """
+    # Analyze the test condition and obtain the taints
+    guard_var = expression(node["test"], context)
 
+    # Create a copy of current context for first possible exec
+    # of the code inside
+    body_context = copy.deepcopy(context)
+    for var in guard_var:
+        for taint in var.get_all_taints():
+            body_context.add_guard_taint(copy.deepcopy(taint))
+    
+    first_exec_branches = statement(node["body"], body_context)
+
+    second_exec_contexts = copy.deepcopy(first_exec_branches)
+    second_exec_branches: List[Branch] = []
+
+    for context in second_exec_contexts:
+        list_merge(second_exec_branches, statement(node['body'], context))
+    
+    # Add the original branch
+    first_exec_branches.insert(0, context)
+    # Add the branches resulted from the second execution
+    list_merge(first_exec_branches, second_exec_branches)
+    return first_exec_branches
 
 
 
@@ -892,9 +972,13 @@ def main():
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
+    patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
+    # slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
+    # patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
 
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    # slice_path = sys.argv[1]
+    # patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
