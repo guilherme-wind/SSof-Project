@@ -28,24 +28,10 @@
         "implicit": "no"
     },
     {
-        "vulnerability": "A_2",
-        "source": [
-            "g",
-            2
-        ],
-        "sink": [
-            "e",
-            9
-        ],
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
-        "implicit": "no"
-    },
-    {
         "vulnerability": "C_1",
         "source": [
-            "g",
-            2
+            "a",
+            9
         ],
         "sink": [
             "e",
@@ -59,7 +45,28 @@
         "vulnerability": "C_2",
         "source": [
             "a",
+            7
+        ],
+        "sink": [
+            "e",
             9
+        ],
+        "unsanitized_flows": "no",
+        "sanitized_flows": [
+            [
+                [
+                    "c",
+                    7
+                ]
+            ]
+        ],
+        "implicit": "no"
+    },
+    {
+        "vulnerability": "A_2",
+        "source": [
+            "d",
+            7
         ],
         "sink": [
             "e",
@@ -72,7 +79,7 @@
     {
         "vulnerability": "C_3",
         "source": [
-            "a",
+            "d",
             7
         ],
         "sink": [
@@ -94,7 +101,7 @@
         "vulnerability": "A_3",
         "source": [
             "d",
-            7
+            9
         ],
         "sink": [
             "e",
@@ -106,41 +113,6 @@
     },
     {
         "vulnerability": "C_4",
-        "source": [
-            "d",
-            7
-        ],
-        "sink": [
-            "e",
-            9
-        ],
-        "unsanitized_flows": "no",
-        "sanitized_flows": [
-            [
-                [
-                    "c",
-                    7
-                ]
-            ]
-        ],
-        "implicit": "no"
-    },
-    {
-        "vulnerability": "A_4",
-        "source": [
-            "d",
-            9
-        ],
-        "sink": [
-            "e",
-            9
-        ],
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
-        "implicit": "no"
-    },
-    {
-        "vulnerability": "C_5",
         "source": [
             "d",
             9

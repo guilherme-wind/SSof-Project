@@ -57,13 +57,13 @@
         "slice_name": "5b-loops-unfolding",
         "expected_output_file": "./examples/5-loops/5b-loops-unfolding.output.json",
         "generated_output_file": "./output/5b-loops-unfolding.output.json",
-        "match": false
+        "match": true
     },
     {
         "slice_name": "5c-loops-unfolding",
         "expected_output_file": "./examples/5-loops/5c-loops-unfolding.output.json",
         "generated_output_file": "./output/5c-loops-unfolding.output.json",
-        "match": false
+        "match": true
     },
     {
         "slice_name": "6a-sanitization",
@@ -81,7 +81,7 @@
         "slice_name": "7-conds-implicit",
         "expected_output_file": "./examples/7-conds-implicit/7-conds-implicit.output.json",
         "generated_output_file": "./output/7-conds-implicit.output.json",
-        "match": true
+        "match": false
     },
     {
         "slice_name": "8-loops-implicit",
@@ -93,6 +93,6 @@
         "slice_name": "9-regions-guards",
         "expected_output_file": "./examples/9-regions-guards/9-regions-guards.output.json",
         "generated_output_file": "./output/9-regions-guards.output.json",
-        "match": true
+        "match": false
     }
 ]
