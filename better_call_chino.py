@@ -259,6 +259,9 @@ class Variable:
             return False
         return self.name == value.name and self.initline == value.initline and self.taint == value.taint
     
+    def __hash__(self):
+        return hash((self.name, self.initline, tuple(self.taint)))
+
     def get_name(self) -> str:
         return self.name
     
@@ -322,6 +325,9 @@ class VariableList:
         if not isinstance(value, VariableList):
             return False
         return self.variables == value.variables
+
+    def __hash__(self):
+        return hash(tuple(self.variables))
     
     def add_variable(self, variable: Variable):
         self.variables.append(variable)
@@ -441,15 +447,17 @@ class Branch:
     Represents a branch in the code, i.e., a possible path that the code
     can take.
     """
-    def __init__(self, initialized_vars: VariableList, guard_taints: List[Taint], is_implicit: bool):
+    def __init__(self, initialized_vars: VariableList, guard_taints: List[Taint]):
         self.initialized_vars = initialized_vars
         self.guard_taints = guard_taints
-        self.is_implicit = is_implicit
     
     def __eq__(self, value):
         if not isinstance(value, Branch):
             return False
         return self.initialized_vars == value.initialized_vars and self.guard_taints == value.guard_taints
+
+    def __hash__(self):
+        return hash((self.initialized_vars, tuple(self.guard_taints)))
 
     def add_initialized_variable(self, variable: Variable):
         self.initialized_vars.add_variable(variable)
@@ -462,12 +470,6 @@ class Branch:
 
     def get_guard_taints(self) -> List[Taint]:
         return self.guard_taints
-
-    def get_is_implicit(self) -> bool:
-        return self.is_implicit
-
-    def set_implicit(self, is_implicit: bool):
-        self.is_implicit = is_implicit
 
     def merge_branches(self, branches: List['Branch']):
         for branch in branches:
@@ -555,7 +557,7 @@ def analyze(node):
     if not isinstance(node, dict) or "type" not in node:
         return
     
-    initial_context = Branch(VariableList(), [], False)
+    initial_context = Branch(VariableList(), [])
     contexts = [initial_context]
     aux_list = []
     
@@ -575,14 +577,12 @@ def statement(node: List[Dict[str, Any]], context: Branch) -> List[Branch]:
         return [context]
 
     elif node["type"] == 'BlockStatement':
-        result = [context]
+        result = []
         for child in node["body"]:
             branches = statement(child, context)
-            # remove the first element of the branche
-            # as it is the original branch
-            branches = branches[1:]
             list_merge(result, branches)
             # list_merge(result, statement(child, context))
+        result = list(set(result))
         return result
 
     elif node["type"] == 'IfStatement':
@@ -868,8 +868,6 @@ def if_statem(node, context: Branch):
     
     consequent_branches = statement(node["consequent"], consequent_context)
 
-    consequent_branches.insert(0, context)
-
     # If there is not 'else' clause
     if "alternate" not in node:
         return consequent_branches
@@ -878,7 +876,9 @@ def if_statem(node, context: Branch):
 
     list_merge(consequent_branches, alternate_branches)
 
-    return consequent_branches + alternate_branches
+    consequent_branches.append(context)
+
+    return consequent_branches
 
 
 def while_statem(node, context: Branch):
@@ -978,10 +978,10 @@ def main():
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
-    slice_path = "./Examples/5-loops/5b-loops-unfolding.js"
-    patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
-    # slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
-    # patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
+    # slice_path = "./Examples/5-loops/5b-loops-unfolding.js"
+    # patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
+    slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
+    patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
 
     #slice_path = sys.argv[1]
     #patterns_path = sys.argv[2]
