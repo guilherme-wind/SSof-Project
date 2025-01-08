@@ -324,7 +324,7 @@ class VariableList:
     def __eq__(self, value):
         if not isinstance(value, VariableList):
             return False
-        return self.variables == value.variables
+        return set(self.variables) == set(value.variables)
 
     def __hash__(self):
         return hash(tuple(self.variables))
@@ -421,6 +421,9 @@ class VulnerabilityList:
         vulnerabilities = self.vulnerabilities[taint]
         for vuln in vulnerabilities:
             if vuln.sink == sink and vuln.line == line:
+                # If the vulnerability is the same, merge the branches
+                # with the incoming taint
+                add_taint_to_list(taint, [vuln.taint])
                 return
 
         self.counters[taint.get_pattern()] += 1
@@ -922,7 +925,7 @@ def while_statem(node, context: Branch):
         last_exec = exec_branches
         exec_branches = []
         for last_exec_branches in last_exec:
-            list_merge(exec_branches, statement(node['body'], last_exec_branches))
+            list_merge(exec_branches, statement(node['body'], copy.deepcopy(last_exec_branches)))
 
     return result_branches
 
@@ -980,8 +983,8 @@ def main():
     # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
     # slice_path = "./Examples/5-loops/5b-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
-    slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
-    patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
+    slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
+    patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
 
     #slice_path = sys.argv[1]
     #patterns_path = sys.argv[2]
