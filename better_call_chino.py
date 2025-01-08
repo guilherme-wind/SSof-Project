@@ -873,42 +873,12 @@ def if_statem(node, context: Branch):
     # If there is not 'else' clause
     if "alternate" not in node:
         return consequent_branches
-    
-    # Create a copy of current context for the alternate branch
-    # alternate_context = copy.deepcopy(context)
-    # for var in guard_var:
-    #     for taint in var.get_all_taints():
-    #         alternate_context.add_guard_taint(copy.deepcopy(taint))
 
     alternate_branches = statement(node["alternate"], context)
-
-
 
     list_merge(consequent_branches, alternate_branches)
 
     return consequent_branches + alternate_branches
-
-    # Mark implicit flows to variables in branches
-   # for branch in consequent_branches + alternate_branches:
-   #     for variable in branch.get_initialized_variables().variables:
-   #         for taint in guard_var[0].get_all_taints():  # Implicitly taint with guard variable
-   #             taint.implicit = True
-   #             variable.add_taint(taint.copy())
-    # Merge the branches
-   # list_merge(consequent_branches, alternate_branches)
-
-    #return consequent_branches + alternate_branches
-
-    # Mark implicit flows to variables in branches
-   # for branch in consequent_branches + alternate_branches:
-   #     for variable in branch.get_initialized_variables().variables:
-   #         for taint in guard_var[0].get_all_taints():  # Implicitly taint with guard variable
-   #             taint.implicit = True
-   #             variable.add_taint(taint.copy())
-    # Merge the branches
-   # list_merge(consequent_branches, alternate_branches)
-
-    #return consequent_branches + alternate_branches
 
 
 def while_statem(node, context: Branch):
@@ -938,33 +908,23 @@ def while_statem(node, context: Branch):
 
     last_exec = [copy.deepcopy(context)]
     exec_branches = statement(node["body"], body_context)
-
+    result_branches = []
     # Merge until everyting converged
     while True:
 
         for branch in exec_branches:
             for last_exec_branch in last_exec:
                 if last_exec_branch == branch:
+                    result_branches.append(branch)
                     exec_branches.remove(branch)
         if not exec_branches:
             break
         last_exec = exec_branches
-        exec_branches = statement(node['body'], body_context)
+        exec_branches = []
+        for last_exec_branches in last_exec:
+            list_merge(exec_branches, statement(node['body'], last_exec_branches))
 
-
-    #second_exec_contexts = copy.deepcopy(first_exec_branches)
-    #second_exec_branches: List[Branch] = []
-
-    #for context in second_exec_contexts:
-     #   list_merge(second_exec_branches, statement(node['body'], context))
-
-    # Add the original branch
-    #first_exec_branches.insert(0, context)
-    # Add the branches resulted from the second execution
-
-
-    #list_merge(first_exec_branches, second_exec_branches)
-    return exec_branches
+    return result_branches
 
 
 
