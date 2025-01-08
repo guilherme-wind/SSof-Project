@@ -24,7 +24,14 @@
             11
         ],
         "unsanitized_flows": "yes",
-        "sanitized_flows": [],
+        "sanitized_flows": [
+            [
+                [
+                    "s",
+                    9
+                ]
+            ]
+        ],
         "implicit": "no"
     }
 ]
