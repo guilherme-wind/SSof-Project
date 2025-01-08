@@ -882,20 +882,9 @@ def if_statem(node, context: Branch):
 
     alternate_branches = statement(node["alternate"], context)
 
-    #Merge until everyting converged
-    converged = False
-    while not converged:
-        converged = True  # There will prob be one useless iteration - the last one, where nothing gets merged. but we have to do this to make sure everything gets merged.
 
-        for branch in consequent_branches + alternate_branches:
-            for variable in branch.get_initialized_variables().variables:
-                for taint in guard_var[0].get_all_taints():
-                    if not any((existing_taint == taint) for existing_taint in variable.get_all_taints()):
-                        taint.implicit = True
-                        variable.add_taint(taint.copy())
-                        converged = False
 
-        list_merge(consequent_branches, alternate_branches)
+    list_merge(consequent_branches, alternate_branches)
 
     return consequent_branches + alternate_branches
 
@@ -946,20 +935,36 @@ def while_statem(node, context: Branch):
     for var in guard_var:
         for taint in var.get_all_taints():
             body_context.add_guard_taint(copy.deepcopy(taint))
-    
-    first_exec_branches = statement(node["body"], body_context)
 
-    second_exec_contexts = copy.deepcopy(first_exec_branches)
-    second_exec_branches: List[Branch] = []
+    last_exec = [copy.deepcopy(context)]
+    exec_branches = statement(node["body"], body_context)
 
-    for context in second_exec_contexts:
-        list_merge(second_exec_branches, statement(node['body'], context))
-    
+    # Merge until everyting converged
+    while True:
+
+        for branch in exec_branches:
+            for last_exec_branch in last_exec:
+                if last_exec_branch == branch:
+                    exec_branches.remove(branch)
+        if not exec_branches:
+            break
+        last_exec = exec_branches
+        exec_branches = statement(node['body'], body_context)
+
+
+    #second_exec_contexts = copy.deepcopy(first_exec_branches)
+    #second_exec_branches: List[Branch] = []
+
+    #for context in second_exec_contexts:
+     #   list_merge(second_exec_branches, statement(node['body'], context))
+
     # Add the original branch
-    first_exec_branches.insert(0, context)
+    #first_exec_branches.insert(0, context)
     # Add the branches resulted from the second execution
-    list_merge(first_exec_branches, second_exec_branches)
-    return first_exec_branches
+
+
+    #list_merge(first_exec_branches, second_exec_branches)
+    return exec_branches
 
 
 
@@ -1018,8 +1023,8 @@ def main():
     # slice_path = "./Examples/5-loops/5c-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5c-loops-unfolding.patterns.json"
 
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    #slice_path = sys.argv[1]
+    #patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
