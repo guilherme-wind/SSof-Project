@@ -979,12 +979,12 @@ def main():
     # patterns_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.patterns.json"
     # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
-    # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
-    # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
+    patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
     # slice_path = "./Examples/5-loops/5b-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
-    slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
-    patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
+    # slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
+    # patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
 
     #slice_path = sys.argv[1]
     #patterns_path = sys.argv[2]
