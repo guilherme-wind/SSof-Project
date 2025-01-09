@@ -1017,8 +1017,10 @@ def main():
     # patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
     # slice_path = "./Examples/7-conds-implicit/7-conds-implicit.js"
     # patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
-    slice_path = "./Examples/8-loops-implicit/8-loops-implicit.js"
-    patterns_path = "./Examples/8-loops-implicit/8-loops-implicit.patterns.json"
+    # slice_path = "./Examples/8-loops-implicit/8-loops-implicit.js"
+    # patterns_path = "./Examples/8-loops-implicit/8-loops-implicit.patterns.json"\
+    slice_path = "./Examples/9-regions-guards/9-regions-guards.js"
+    patterns_path = "./Examples/9-regions-guards/9-regions-guards.patterns.json"
 
     # slice_path = sys.argv[1]
     # patterns_path = sys.argv[2]

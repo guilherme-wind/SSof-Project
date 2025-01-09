@@ -28,10 +28,90 @@
             [
                 [
                     "s",
+                    5
+                ],
+                [
+                    "s",
+                    13
+                ]
+            ],
+            [
+                [
+                    "s",
+                    13
+                ]
+            ],
+            [
+                [
+                    "s",
+                    13
+                ],
+                [
+                    "s",
+                    5
+                ]
+            ]
+        ],
+        "implicit": "yes"
+    },
+    {
+        "vulnerability": "B_3",
+        "source": [
+            "b",
+            1
+        ],
+        "sink": [
+            "z",
+            15
+        ],
+        "unsanitized_flows": "no",
+        "sanitized_flows": [
+            [
+                [
+                    "s",
+                    5
+                ],
+                [
+                    "s",
+                    13
+                ]
+            ],
+            [
+                [
+                    "s",
+                    13
+                ],
+                [
+                    "s",
+                    5
+                ]
+            ]
+        ],
+        "implicit": "yes"
+    },
+    {
+        "vulnerability": "A_1",
+        "source": [
+            "d",
+            2
+        ],
+        "sink": [
+            "z",
+            15
+        ],
+        "unsanitized_flows": "no",
+        "sanitized_flows": [
+            [
+                [
+                    "s",
+                    5
+                ],
+                [
+                    "s",
                     13
                 ]
             ]
         ],
-        "implicit": "no"
+        "implicit": "yes"
     }
 ]
