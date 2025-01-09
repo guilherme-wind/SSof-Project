@@ -731,6 +731,14 @@ def call_expr(node, context: Branch) -> List[Variable]:
         # If the function is a sanitizer
         sanitizer_patterns = patternlist.is_in_sanitizer(callee.get_name())
         if sanitizer_patterns != []:
+            # See if it is a sanitizer of some implicit pattern
+            implicit_patterns = get_implicit_patterns(sanitizer_patterns)
+            if implicit_patterns != []:
+                # Register the vulnerability of the branch guard
+                for guard_taint in context.get_guard_taints():
+                    if guard_taint.get_pattern() not in implicit_patterns:
+                        continue
+                    guard_taint.add_sanitizer_all_branches((callee.get_name(), current_line))
             # Filter the taints that can be sanitized
             sanitizable_taints = taints_in_patterns(aux_taint_list, sanitizer_patterns)
             for taint in sanitizable_taints:
@@ -1007,8 +1015,10 @@ def main():
     # patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
     # slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
-    slice_path = "./Examples/7-conds-implicit/7-conds-implicit.js"
-    patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
+    # slice_path = "./Examples/7-conds-implicit/7-conds-implicit.js"
+    # patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
+    slice_path = "./Examples/8-loops-implicit/8-loops-implicit.js"
+    patterns_path = "./Examples/8-loops-implicit/8-loops-implicit.patterns.json"
 
     # slice_path = sys.argv[1]
     # patterns_path = sys.argv[2]
