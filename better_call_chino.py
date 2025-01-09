@@ -553,6 +553,16 @@ def merge_taint_lists(list1: List[Taint], list_to_be_merged: List[Taint]):
     """
     for taint in list_to_be_merged:
         add_taint_to_list(taint, list1)
+
+def get_implicit_patterns(patterns: List[Pattern]) -> List[Pattern]:
+    """
+    Returns a list of patterns that are implicit.
+    """
+    results: List[Pattern] = []
+    for pattern in patterns:
+        if pattern.is_implicit():
+            results.append(pattern)
+    return results
 # =====================================================================
 
 
@@ -691,6 +701,20 @@ def call_expr(node, context: Branch) -> List[Variable]:
         # If the function is a sink
         sink_patterns = patternlist.is_in_sink(callee.get_name())
         if sink_patterns != []:
+            # See if it is a sink of some implicit pattern
+            implicit_patterns = get_implicit_patterns(sink_patterns)
+            if implicit_patterns != []:
+                # Register the vulnerability of the branch guard
+                for guard_taint in context.get_guard_taints():
+                    if guard_taint.get_pattern() not in implicit_patterns:
+                        continue
+                    vulnerabilities.add_vulnerability(guard_taint, callee.get_name(), current_line, True)
+                    print({
+                        "vulnerability": guard_taint.get_pattern().get_name(),
+                        "source": [guard_taint.source, guard_taint.line],
+                        "sink": [callee.get_name(), current_line],
+                        "sanitized_flows": [branch.get_sanitizers() for branch in guard_taint.get_branches()]
+                    })
             # Filter the taints that can fall into the sink
             sinkable_taints = taints_in_patterns(aux_taint_list, sink_patterns)
             for taint in sinkable_taints:
@@ -766,6 +790,20 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
         # If the left side is a sink
         sink_patterns = patternlist.is_in_sink(left.get_name())
         if sink_patterns != []:
+            # See if it is a sink of some implicit pattern
+            implicit_patterns = get_implicit_patterns(sink_patterns)
+            if implicit_patterns != []:
+                # Register the vulnerability of the branch guard
+                for guard_taint in context.get_guard_taints():
+                    if guard_taint.get_pattern() not in implicit_patterns:
+                        continue
+                    vulnerabilities.add_vulnerability(guard_taint, left.get_name(), current_line, True)
+                    print({
+                        "vulnerability": guard_taint.get_pattern().get_name(),
+                        "source": [guard_taint.source, guard_taint.line],
+                        "sink": [left.get_name(), current_line],
+                        "sanitized_flows": [branch.get_sanitizers() for branch in guard_taint.get_branches()]
+                    })
             # Filter the taints that can fall into the sink
             sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
             for taint in sinkable_taints:
@@ -954,9 +992,9 @@ variablelist: VariableList = VariableList()
 vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
-    if len(sys.argv) != 3:
-         print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
-         sys.exit(1)
+    # if len(sys.argv) != 3:
+    #      print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
+    #      sys.exit(1)
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
     # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
@@ -969,9 +1007,11 @@ def main():
     # patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
     # slice_path = "./Examples/5-loops/5a-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5a-loops-unfolding.patterns.json"
+    slice_path = "./Examples/7-conds-implicit/7-conds-implicit.js"
+    patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
 
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    # slice_path = sys.argv[1]
+    # patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
