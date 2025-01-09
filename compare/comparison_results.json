@@ -87,7 +87,7 @@
         "slice_name": "8-loops-implicit",
         "expected_output_file": "./examples/8-loops-implicit/8-loops-implicit.output.json",
         "generated_output_file": "./output/8-loops-implicit.output.json",
-        "match": false
+        "match": true
     },
     {
         "slice_name": "9-regions-guards",

@@ -23,10 +23,6 @@
             "w",
             7
         ],
-<<<<<<< HEAD
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
-=======
         "unsanitized_flows": "no",
         "sanitized_flows": [
             [
@@ -36,7 +32,6 @@
                 ]
             ]
         ],
->>>>>>> c44c2dfdd34626c94ad292402405edb081cac849
         "implicit": "yes"
     },
     {
@@ -63,10 +58,6 @@
             "w",
             7
         ],
-<<<<<<< HEAD
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
-=======
         "unsanitized_flows": "no",
         "sanitized_flows": [
             [
@@ -76,7 +67,6 @@
                 ]
             ]
         ],
->>>>>>> c44c2dfdd34626c94ad292402405edb081cac849
         "implicit": "yes"
     }
 ]
