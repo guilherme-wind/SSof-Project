@@ -992,9 +992,9 @@ variablelist: VariableList = VariableList()
 vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
-    # if len(sys.argv) != 3:
-    #      print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
-    #      sys.exit(1)
+    if len(sys.argv) != 3:
+          print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
+          sys.exit(1)
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
     # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
@@ -1010,8 +1010,8 @@ def main():
     slice_path = "./Examples/7-conds-implicit/7-conds-implicit.js"
     patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
 
-    # slice_path = sys.argv[1]
-    # patterns_path = sys.argv[2]
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
