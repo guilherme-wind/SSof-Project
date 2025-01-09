@@ -453,6 +453,7 @@ class Branch:
     def __init__(self, initialized_vars: VariableList, guard_taints: List[Taint]):
         self.initialized_vars = initialized_vars
         self.guard_taints = guard_taints
+        self.name = ""
     
     def __eq__(self, value):
         if not isinstance(value, Branch):
@@ -710,6 +711,7 @@ def call_expr(node, context: Branch) -> List[Variable]:
                         continue
                     vulnerabilities.add_vulnerability(guard_taint, callee.get_name(), current_line, True)
                     print({
+                        "branch": context.name,
                         "vulnerability": guard_taint.get_pattern().get_name(),
                         "source": [guard_taint.source, guard_taint.line],
                         "sink": [callee.get_name(), current_line],
@@ -722,6 +724,7 @@ def call_expr(node, context: Branch) -> List[Variable]:
                 # Register the vulnerability
                 vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
                 print({
+                    "branch": context.name,
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [callee.get_name(), current_line],
@@ -807,6 +810,7 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
                         continue
                     vulnerabilities.add_vulnerability(guard_taint, left.get_name(), current_line, True)
                     print({
+                        "branch": context.name,
                         "vulnerability": guard_taint.get_pattern().get_name(),
                         "source": [guard_taint.source, guard_taint.line],
                         "sink": [left.get_name(), current_line],
@@ -818,6 +822,7 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
                 taint.merge_branches()
                 vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
                 print({
+                    "branch": context.name,
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [left.get_name(), current_line],
@@ -899,14 +904,18 @@ def if_statem(node, context: Branch):
         for taint in var.get_all_taints():
             consequent_context.add_guard_taint(copy.deepcopy(taint))
 
+    consequent_context.name += "if "
     consequent_branches = statement(node["consequent"], consequent_context)
 
     # Handle the "else" branch
     if "alternate" in node:
         alternate_context = copy.deepcopy(context)
+        alternate_context.name += "else "
         alternate_branches = statement(node["alternate"], alternate_context)
     else:
-        alternate_branches = [copy.deepcopy(context)]
+        alternate_context = copy.deepcopy(context)
+        alternate_context.name += "noelse "
+        alternate_branches = [alternate_context]
 
     # Merge the branches and include the original context
     merged_branches = list(set(consequent_branches + alternate_branches))
@@ -938,6 +947,7 @@ def while_statem(node, context: Branch):
     for var in guard_var:
         for taint in var.get_all_taints():
             body_context.add_guard_taint(copy.deepcopy(taint))
+    body_context.name += "while "
 
     last_exec = [copy.deepcopy(context)]
     exec_branches = statement(node["body"], body_context)
@@ -955,7 +965,9 @@ def while_statem(node, context: Branch):
         last_exec = exec_branches
         exec_branches = []
         for last_exec_branches in last_exec:
-            list_merge(exec_branches, statement(node['body'], copy.deepcopy(last_exec_branches)))
+            exec_bran = copy.deepcopy(last_exec_branches)
+            exec_bran.name += "while "
+            list_merge(exec_branches, statement(node['body'], exec_bran))
 
     return result_branches
 
@@ -1019,9 +1031,11 @@ def main():
     # patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
     # slice_path = "./Examples/8-loops-implicit/8-loops-implicit.js"
     # patterns_path = "./Examples/8-loops-implicit/8-loops-implicit.patterns.json"
+    slice_path = "./Examples/9-regions-guards/9-regions-guards.js"
+    patterns_path = "./Examples/9-regions-guards/9-regions-guards.patterns.json"
 
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    # slice_path = sys.argv[1]
+    # patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
