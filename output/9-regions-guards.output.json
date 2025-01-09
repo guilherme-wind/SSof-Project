@@ -28,11 +28,31 @@
             [
                 [
                     "s",
+                    5
+                ],
+                [
+                    "s",
                     13
+                ]
+            ],
+            [
+                [
+                    "s",
+                    13
+                ]
+            ],
+            [
+                [
+                    "s",
+                    13
+                ],
+                [
+                    "s",
+                    5
                 ]
             ]
         ],
-        "implicit": "no"
+        "implicit": "yes"
     },
     {
         "vulnerability": "B_3",
@@ -44,8 +64,29 @@
             "z",
             15
         ],
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
+        "unsanitized_flows": "no",
+        "sanitized_flows": [
+            [
+                [
+                    "s",
+                    5
+                ],
+                [
+                    "s",
+                    13
+                ]
+            ],
+            [
+                [
+                    "s",
+                    13
+                ],
+                [
+                    "s",
+                    5
+                ]
+            ]
+        ],
         "implicit": "yes"
     },
     {
@@ -64,6 +105,10 @@
                 [
                     "s",
                     5
+                ],
+                [
+                    "s",
+                    13
                 ]
             ]
         ],

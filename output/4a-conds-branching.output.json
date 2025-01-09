@@ -14,7 +14,7 @@
         "implicit": "no"
     },
     {
-        "vulnerability": "B_4",
+        "vulnerability": "B_3",
         "source": [
             "d",
             7
@@ -84,7 +84,7 @@
         "implicit": "no"
     },
     {
-        "vulnerability": "B_3",
+        "vulnerability": "B_4",
         "source": [
             "a",
             10
