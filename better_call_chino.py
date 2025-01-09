@@ -844,44 +844,28 @@ def logical_expr(node, context: Branch) -> List[Variable]:
 
 
 def if_statem(node, context: Branch):
-    """
-    Evaluates an if statement, taking into account
-    the possible branches that the code can take.
-    - The execution enters the if:
-        The code inside may generate other branches as
-        it may contain other if or while, these ones 
-        need to be registered.
-
-    - The execution doesn't enter the if:
-        1. There is a 'else' clause, which means that 
-            the branch that doesn't go into if will always
-            pass through 'else', where it can create more
-            branches
-        2. There is no 'else' clause, then the other branch is
-            simply the original branch as no changes will be made
-    """
-
     # Analyze the test condition and obtain the taints
     guard_var = expression(node["test"], context)
 
+    # Handle the "if" branch
     consequent_context = copy.deepcopy(context)
     for var in guard_var:
         for taint in var.get_all_taints():
             consequent_context.add_guard_taint(copy.deepcopy(taint))
-    
+
     consequent_branches = statement(node["consequent"], consequent_context)
 
-    # If there is not 'else' clause
-    if "alternate" not in node:
-        return consequent_branches
+    # Handle the "else" branch
+    if "alternate" in node:
+        alternate_context = copy.deepcopy(context)
+        alternate_branches = statement(node["alternate"], alternate_context)
+    else:
+        alternate_branches = [copy.deepcopy(context)]
 
-    alternate_branches = statement(node["alternate"], context)
+    # Merge the branches and include the original context
+    merged_branches = list(set(consequent_branches + alternate_branches))
+    return merged_branches
 
-    list_merge(consequent_branches, alternate_branches)
-
-    consequent_branches.append(context)
-
-    return consequent_branches
 
 
 def while_statem(node, context: Branch):
@@ -970,9 +954,9 @@ variablelist: VariableList = VariableList()
 vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
-    # if len(sys.argv) != 3:
-    #     print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
-    #     sys.exit(1)
+    if len(sys.argv) != 3:
+         print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
+         sys.exit(1)
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
     # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
@@ -980,7 +964,7 @@ def main():
     # slice_path = "./Examples/3-expr/3a-expr-func-calls.js"
     # patterns_path = "./Examples/3-expr/3a-expr-func-calls.patterns.json"
     # slice_path = "./Examples/4-conds-branching/4a-conds-branching.js"
-    # patterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
+    # gitppatterns_path = "./Examples/4-conds-branching/4a-conds-branching.patterns.json"
     # slice_path = "./Examples/5-loops/5b-loops-unfolding.js"
     # patterns_path = "./Examples/5-loops/5b-loops-unfolding.patterns.json"
     # slice_path = "./Examples/5-loops/5a-loops-unfolding.js"

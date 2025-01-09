@@ -39,7 +39,7 @@
         "slice_name": "4a-conds-branching",
         "expected_output_file": "./examples/4-conds-branching/4a-conds-branching.output.json",
         "generated_output_file": "./output/4a-conds-branching.output.json",
-        "match": false
+        "match": true
     },
     {
         "slice_name": "4b-conds-branching",
