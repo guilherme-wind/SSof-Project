@@ -1,0 +1,7 @@
+[
+    {
+        "vulnerability": "DOM Manipulation",
+        "source": ["document.write", ",innerHTML", "outerHTML", "eval", "windows.location"],
+        "sink": []
+    }
+]

@@ -1,0 +1,7 @@
+[
+    {
+        "vulnerability": "Event Attributes",
+        "source": ["onclick", "onload", "onunload",  "onselect", "onerror"],
+        "sink": []
+    }
+]
