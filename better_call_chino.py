@@ -124,6 +124,9 @@ class TaintBranch:
         if not isinstance(value, TaintBranch):
             return False
         return self.sanitizers == value.sanitizers
+    
+    def __hash__(self):
+        return hash(tuple(self.sanitizers))
 
     def __str__(self):
         string = "["
@@ -164,17 +167,6 @@ class Taint:
         self.implicit = implicit
         self.branches: List[TaintBranch] = []
     
-    def __str__(self):
-        vulnerability = self.pattern.get_name()
-        source = self.source
-        line = self.line
-        unsanitized_flows: str = "yes"
-        sanitized_flows: str = ""
-        for branch in self.branches:
-            if not branch.is_unsanitized():
-                unsanitized_flows = "no"
-            sanitized_flows += f"{branch}, "
-        return f"Vulnerability: {vulnerability}, Source: [{source}, {line}], Unsanitized flows: {unsanitized_flows}"
     
     def __eq__(self, value):
         if not isinstance(value, Taint):
@@ -257,7 +249,7 @@ class Variable:
     def __eq__(self, value):
         if not isinstance(value, Variable):
             return False
-        return self.name == value.name and self.initline == value.initline and self.taint == value.taint
+        return self.name == value.name and self.initline == value.initline and set(self.taint) == set(value.taint)
     
     def __hash__(self):
         return hash((self.name, self.initline, tuple(self.taint)))
@@ -458,7 +450,7 @@ class Branch:
     def __eq__(self, value):
         if not isinstance(value, Branch):
             return False
-        return self.initialized_vars == value.initialized_vars and self.guard_taints == value.guard_taints
+        return self.initialized_vars == value.initialized_vars and set(self.guard_taints) == set(value.guard_taints)
 
     def __hash__(self):
         return hash((self.initialized_vars, tuple(self.guard_taints)))
@@ -725,7 +717,7 @@ def call_expr(node, context: Branch) -> List[Variable]:
                 # Register the vulnerability
                 vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line, True)
                 print({
-                    "branch": context.name,
+                    # "branch": context.name,
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [callee.get_name(), current_line],
@@ -740,7 +732,7 @@ def call_expr(node, context: Branch) -> List[Variable]:
                 # Register the vulnerability
                 vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line)
                 print({
-                    "branch": context.name,
+                    # "branch": context.name,
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [callee.get_name(), current_line],
@@ -821,28 +813,28 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
         # If the left side is a sink
         sink_patterns = patternlist.is_in_sink(left.get_name())
         if sink_patterns != []:
-            # See if it is a sink of some implicit pattern
+            # Filter the implicit taints that can fall into the sink
             implicit_patterns = get_implicit_patterns(sink_patterns)
-            if implicit_patterns != []:
-                # Register the vulnerability of the branch guard
-                for guard_taint in context.get_guard_taints():
-                    if guard_taint.get_pattern() not in implicit_patterns:
-                        continue
-                    vulnerabilities.add_vulnerability(guard_taint, left.get_name(), current_line, True)
-                    print({
-                        "branch": context.name,
-                        "vulnerability": guard_taint.get_pattern().get_name(),
-                        "source": [guard_taint.source, guard_taint.line],
-                        "sink": [left.get_name(), current_line],
-                        "sanitized_flows": [branch.get_sanitizers() for branch in guard_taint.get_branches()]
-                    })
-            # Filter the taints that can fall into the sink
-            sinkable_taints = taints_in_patterns(right_taint_list, sink_patterns)
-            for taint in sinkable_taints:
+            sinkable_implic_taints = taints_in_patterns(right_taint_list, implicit_patterns)
+            for taint in sinkable_implic_taints:
+                taint.merge_branches()
+                vulnerabilities.add_vulnerability(taint, left.get_name(), current_line, True)
+                print({
+                    # "branch": context.name,
+                    "vulnerability": taint.get_pattern().get_name(),
+                    "source": [taint.source, taint.line],
+                    "sink": [left.get_name(), current_line],
+                    "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
+                })
+
+            # Filter the explicit taints that can fall into the sink
+            explicit_patterns = get_explicit_patterns(sink_patterns)
+            sinkable_explic_taints = taints_in_patterns(right_taint_list, explicit_patterns)
+            for taint in sinkable_explic_taints:
                 taint.merge_branches()
                 vulnerabilities.add_vulnerability(taint, left.get_name(), current_line)
                 print({
-                    "branch": context.name,
+                    # "branch": context.name,
                     "vulnerability": taint.get_pattern().get_name(),
                     "source": [taint.source, taint.line],
                     "sink": [left.get_name(), current_line],
@@ -855,9 +847,7 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
             # Merge with the taints of the right side
             left_taint_list = copy.deepcopy(initialized_var.get_all_taints())
             list_merge(left_taint_list, right_taint_list)
-            # TODO: Sus! Maybe the initialized variable should only
-            # have the taints of the right side and not the previous taints
-            initialized_var.merge_taints(right_taint_list)
+            initialized_var.taint = right_taint_list
 
         elif left == result_left[-1]:
             # Initialize a new variable ONLY if its the last element
@@ -934,7 +924,7 @@ def if_statem(node, context: Branch):
         alternate_context = copy.deepcopy(context)
         alternate_context.name += "else "
         alternate_branches = statement(node["alternate"], alternate_context)
-        alternate_branches.append(alternate_context)
+        # alternate_branches.append(alternate_context)
     else:
         alternate_context = copy.deepcopy(context)
         alternate_context.name += "noelse "
@@ -972,39 +962,40 @@ def while_statem(node, context: Branch):
             body_context.add_guard_taint(copy.deepcopy(taint))
     body_context.name += "while "
 
+    MAX_ITERATIONS = 10
     last_exec = [copy.deepcopy(context)]
     exec_branches = statement(node["body"], body_context)
     result_branches = []
     # Merge until everyting converged
-    while True:
-
+    while MAX_ITERATIONS > 0:
+        # Compare the branches of the last execution with the current
         for branch in exec_branches:
             for last_exec_branch in last_exec:
+                # If nothing chaned, don't explore further the branch
+                # and add it to the results
                 if last_exec_branch == branch:
                     result_branches.append(branch)
                     exec_branches.remove(branch)
+        # If there are no more branches to explore, break the loop
+        # as all the possible flows have been explored
         if not exec_branches:
             break
+        MAX_ITERATIONS -= 1
+        # Prepare for the next iteration
         last_exec = exec_branches
         exec_branches = []
         for last_exec_branches in last_exec:
             exec_bran = copy.deepcopy(last_exec_branches)
+            # Reevaluate the guard condition
+            exec_bran.guard_taints = []
+            guard_var = expression(node["test"], exec_bran)
+            for var in guard_var:
+                for taint in var.get_all_taints():
+                    exec_bran.add_guard_taint(copy.deepcopy(taint))
             exec_bran.name += "while "
             list_merge(exec_branches, statement(node['body'], exec_bran))
 
     return result_branches
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class FileHandler:
