@@ -714,7 +714,7 @@ def call_expr(node, context: Branch) -> List[Variable]:
     
     # Add the guard taints to the list
     if get_implicit_patterns(patternlist.patterns) != []:
-        merge_taint_lists(aux_taint_list, copy.deepcopy(context.get_guard_taints()))
+        merge_taint_lists(aux_taint_list, context.get_guard_taints())
 
     for callee in callees:
         # If the function is a sink
@@ -822,8 +822,8 @@ def assignment_expr(node, context: Branch) -> List[Variable]:
             new_taint.add_new_branch()
             add_taint_to_list(new_taint, right_taint_list)
     
-    if get_implicit_patterns(patternlist.patterns) != []:
-        merge_taint_lists(right_taint_list, copy.deepcopy(context.get_guard_taints()))
+    # if get_implicit_patterns(patternlist.patterns) != []:
+    #     merge_taint_lists(right_taint_list, context.get_guard_taints())
 
     for left in result_left:
         # If the left side is a sink
@@ -1081,11 +1081,11 @@ def main():
     # patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
     # slice_path = "./Examples/8-loops-implicit/8-loops-implicit.js"
     # patterns_path = "./Examples/8-loops-implicit/8-loops-implicit.patterns.json"
-    slice_path = "./Examples/9-regions-guards/9-regions-guards.js"
-    patterns_path = "./Examples/9-regions-guards/9-regions-guards.patterns.json"
+    # slice_path = "./Examples/9-regions-guards/9-regions-guards.js"
+    # patterns_path = "./Examples/9-regions-guards/9-regions-guards.patterns.json"
 
-    # slice_path = sys.argv[1]
-    # patterns_path = sys.argv[2]
+    slice_path = sys.argv[1]
+    patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
