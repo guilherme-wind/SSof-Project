@@ -287,13 +287,17 @@ class Variable:
         for taint in taints:
             existing_taint = self.get_taint(taint.source, taint.line, taint.get_pattern())
             if existing_taint is None:
-                self.taint.append(taint.copy())
+                copy_taint = copy.deepcopy(taint)
+                taint.merge_branches()
+                self.taint.append(copy_taint)
             else:
                 # Compare the branches of the taints
                 for branch in taint.get_branches():
                     existing_branch = existing_taint.get_branches()
                     if existing_branch is [] or branch != existing_branch:
-                        existing_taint.add_branch(branch.copy())
+                        existing_taint.add_branch(copy.deepcopy(branch))
+                existing_taint.merge_branches()
+            
     
     def get_taint(self, source: str, line: int, pattern: Pattern) -> Optional[Taint]:
         for taint in self.taint:
@@ -540,6 +544,7 @@ def add_taint_to_list(to_add_taint: Taint, taints: List[Taint]):
     """
     if to_add_taint not in taints:
         taints.append(to_add_taint)
+        return
     
     for t in taints:
         if t == to_add_taint:
@@ -705,18 +710,29 @@ def call_expr(node, context: Branch) -> List[Variable]:
             # See if it is a sink of some implicit pattern
             implicit_patterns = get_implicit_patterns(sink_patterns)
             if implicit_patterns != []:
-                # Register the vulnerability of the branch guard
-                for guard_taint in context.get_guard_taints():
-                    if guard_taint.get_pattern() not in implicit_patterns:
-                        continue
-                    vulnerabilities.add_vulnerability(guard_taint, callee.get_name(), current_line, True)
+                sinkable_implic_taints = taints_in_patterns(context.get_guard_taints(), implicit_patterns)
+                for taint in sinkable_implic_taints:
+                    taint.merge_branches()
+                    vulnerabilities.add_vulnerability(taint, callee.get_name(), current_line, True)
                     print({
                         "branch": context.name,
-                        "vulnerability": guard_taint.get_pattern().get_name(),
-                        "source": [guard_taint.source, guard_taint.line],
+                        "vulnerability": taint.get_pattern().get_name(),
+                        "source": [taint.source, taint.line],
                         "sink": [callee.get_name(), current_line],
-                        "sanitized_flows": [branch.get_sanitizers() for branch in guard_taint.get_branches()]
+                        "sanitized_flows": [branch.get_sanitizers() for branch in taint.get_branches()]
                     })
+                # # Register the vulnerability of the branch guard
+                # for guard_taint in context.get_guard_taints():
+                #     if guard_taint.get_pattern() not in implicit_patterns:
+                #         continue
+                #     vulnerabilities.add_vulnerability(guard_taint, callee.get_name(), current_line, True)
+                #     print({
+                #         "branch": context.name,
+                #         "vulnerability": guard_taint.get_pattern().get_name(),
+                #         "source": [guard_taint.source, guard_taint.line],
+                #         "sink": [callee.get_name(), current_line],
+                #         "sanitized_flows": [branch.get_sanitizers() for branch in guard_taint.get_branches()]
+                #     })
             # Filter the taints that can fall into the sink
             sinkable_taints = taints_in_patterns(aux_taint_list, sink_patterns)
             for taint in sinkable_taints:
@@ -949,23 +965,30 @@ def while_statem(node, context: Branch):
             body_context.add_guard_taint(copy.deepcopy(taint))
     body_context.name += "while "
 
+    counter = 0
     last_exec = [copy.deepcopy(context)]
     exec_branches = statement(node["body"], body_context)
     result_branches = []
+    counter += 1
     # Merge until everyting converged
     while True:
 
         for branch in exec_branches:
             for last_exec_branch in last_exec:
                 if last_exec_branch == branch:
-                    result_branches.append(branch)
+                    result_branches.append(copy.deepcopy(branch))
                     exec_branches.remove(branch)
         if not exec_branches:
             break
         last_exec = exec_branches
         exec_branches = []
+        counter += 1
         for last_exec_branches in last_exec:
             exec_bran = copy.deepcopy(last_exec_branches)
+            guard_var = expression(node["test"], exec_bran)
+            for var in guard_var:
+                for taint in var.get_all_taints():
+                    exec_bran.add_guard_taint(copy.deepcopy(taint))
             exec_bran.name += "while "
             list_merge(exec_branches, statement(node['body'], exec_bran))
 
@@ -1012,9 +1035,9 @@ variablelist: VariableList = VariableList()
 vulnerabilities: VulnerabilityList = VulnerabilityList()
 
 def main():
-    if len(sys.argv) != 3:
-         print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
-         sys.exit(1)
+    # if len(sys.argv) != 3:
+    #      print(f"\033[31mError: Usage: python script.py <slice_path> <patterns_path>\033[0m", file=sys.stderr)
+    #      sys.exit(1)
     # slice_path = "./Examples/1-basic-flow/1b-basic-flow.js"
     # patterns_path = "./Examples/1-basic-flow/1b-basic-flow.patterns.json"
     # slice_path = "./Examples/2-expr-binary-ops/2-expr-binary-ops.js"
@@ -1031,11 +1054,11 @@ def main():
     # patterns_path = "./Examples/7-conds-implicit/7-conds-implicit.patterns.json"
     # slice_path = "./Examples/8-loops-implicit/8-loops-implicit.js"
     # patterns_path = "./Examples/8-loops-implicit/8-loops-implicit.patterns.json"
-    # slice_path = "./Examples/9-regions-guards/9-regions-guards.js"
-    # patterns_path = "./Examples/9-regions-guards/9-regions-guards.patterns.json"
+    slice_path = "./Examples/9-regions-guards/9-regions-guards.js"
+    patterns_path = "./Examples/9-regions-guards/9-regions-guards.patterns.json"
 
-    slice_path = sys.argv[1]
-    patterns_path = sys.argv[2]
+    # slice_path = sys.argv[1]
+    # patterns_path = sys.argv[2]
     
     print(f"Analyzing slice: {slice_path}\nUsing patterns: {patterns_path}\n")
 
