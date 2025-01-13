@@ -30,6 +30,20 @@
     {
         "vulnerability": "A_1",
         "source": [
+            "f",
+            4
+        ],
+        "sink": [
+            "e",
+            10
+        ],
+        "unsanitized_flows": "yes",
+        "sanitized_flows": [],
+        "implicit": "no"
+    },
+    {
+        "vulnerability": "A_2",
+        "source": [
             "c",
             10
         ],
@@ -46,20 +60,6 @@
         "source": [
             "c",
             10
-        ],
-        "sink": [
-            "e",
-            10
-        ],
-        "unsanitized_flows": "yes",
-        "sanitized_flows": [],
-        "implicit": "no"
-    },
-    {
-        "vulnerability": "A_2",
-        "source": [
-            "f",
-            4
         ],
         "sink": [
             "e",
